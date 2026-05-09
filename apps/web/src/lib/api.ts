@@ -12,9 +12,14 @@ import {
 } from './mock';
 import type { AgentBuild, Analysis, CapabilityModel, DeviceEvent, EmergencyEvent, Overview, Patient, PatientMemory, ReportCard, TimelinePoint } from './types';
 
+const isStaticPagesHost = typeof window !== 'undefined' && window.location.hostname.endsWith('github.io');
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787';
+const USE_STATIC_MOCKS = isStaticPagesHost && !import.meta.env.VITE_API_BASE_URL;
 
 async function getJson<T>(path: string): Promise<T> {
+  if (USE_STATIC_MOCKS) {
+    throw new Error('Static GitHub Pages build uses local demo data');
+  }
   const response = await fetch(`${API_BASE}${path}`);
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
@@ -23,6 +28,9 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
+  if (USE_STATIC_MOCKS) {
+    throw new Error('Static GitHub Pages build uses local demo data');
+  }
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
