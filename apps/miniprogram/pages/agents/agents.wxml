@@ -5,6 +5,7 @@
     <text class="hero-subtitle">{{summary}}</text>
     <view class="button-row">
       <button class="btn primary" bindtap="handleRunAnalysis">运行智能体</button>
+      <button class="btn" bindtap="goOS">Agent OS</button>
     </view>
   </view>
 

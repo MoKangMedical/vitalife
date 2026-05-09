@@ -28,13 +28,14 @@ import {
   Workflow
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { fetchOverview, fetchPatient, fetchPatients, fetchTimeline, runAnalysis, simulateEmergency } from './lib/api';
-import type { Analysis, EmergencyEvent, Overview, Patient, RiskLevel, RiskTier, TimelinePoint } from './lib/types';
+import { fetchCapabilities, fetchOverview, fetchPatient, fetchPatients, fetchTimeline, runAnalysis, simulateEmergency } from './lib/api';
+import type { Analysis, CapabilityModel, EmergencyEvent, Overview, Patient, RiskLevel, RiskTier, TimelinePoint } from './lib/types';
 
-type ViewId = 'overview' | 'capture' | 'agents' | 'reports' | 'clinician' | 'emergency' | 'settings';
+type ViewId = 'overview' | 'platform' | 'capture' | 'agents' | 'reports' | 'clinician' | 'emergency' | 'settings';
 
 const navigation: Array<{ id: ViewId; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'overview', label: '健康总览', icon: LayoutDashboard },
+  { id: 'platform', label: 'Agent OS', icon: Network },
   { id: 'capture', label: '多模态采集', icon: Camera },
   { id: 'agents', label: '智能体分析', icon: BrainCircuit },
   { id: 'reports', label: '报告中心', icon: FileText },
@@ -92,13 +93,15 @@ export default function App() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
+  const [capabilities, setCapabilities] = useState<CapabilityModel | null>(null);
   const [running, setRunning] = useState(false);
   const [emergency, setEmergency] = useState<EmergencyEvent | null>(null);
 
   useEffect(() => {
-    void Promise.all([fetchOverview(), fetchPatients()]).then(([nextOverview, nextPatients]) => {
+    void Promise.all([fetchOverview(), fetchPatients(), fetchCapabilities()]).then(([nextOverview, nextPatients, nextCapabilities]) => {
       setOverview(nextOverview);
       setPatients(nextPatients);
+      setCapabilities(nextCapabilities);
       setSelectedPatientId((current) => current || nextPatients[0]?.id || '');
     });
   }, []);
@@ -148,6 +151,7 @@ export default function App() {
         return (
           <OverviewPage
             analysis={analysis}
+            capabilities={capabilities}
             overview={overview}
             patient={selectedPatient}
             running={running}
@@ -157,6 +161,8 @@ export default function App() {
             onViewChange={setActiveView}
           />
         );
+      case 'platform':
+        return capabilities ? <PlatformOSPage capabilities={capabilities} overview={overview} /> : <LoadingState />;
       case 'capture':
         return <CapturePage patient={selectedPatient} onRunAnalysis={handleRunAnalysis} running={running} />;
       case 'agents':
@@ -269,6 +275,7 @@ function LoadingState() {
 
 function OverviewPage({
   analysis,
+  capabilities,
   overview,
   patient,
   running,
@@ -278,6 +285,7 @@ function OverviewPage({
   onViewChange
 }: {
   analysis: Analysis | null;
+  capabilities: CapabilityModel | null;
   overview: Overview;
   patient: Patient;
   running: boolean;
@@ -316,6 +324,7 @@ function OverviewPage({
         <MetricCard icon={AlertTriangle} label="高风险队列" value={overview.highRisk} suffix="人" tone="warn" />
         <MetricCard icon={Watch} label="连接设备" value={overview.monitoredDevices} suffix="台" />
         <MetricCard icon={BrainCircuit} label="活跃智能体" value={overview.activeAgents} suffix="个" />
+        <MetricCard icon={DatabaseZap} label="可复用Skill" value={overview.reusableSkills ?? capabilities?.skills.length ?? 0} suffix="个" />
       </section>
 
       <section className="panel wide">
@@ -343,10 +352,133 @@ function OverviewPage({
         <ActionList analysis={analysis} />
         <div className="module-row">
           {overview.modules.map((module) => (
-            <button className="module-chip" key={module} onClick={() => onViewChange(module === '专家智能体' ? 'agents' : 'capture')} type="button">
+            <button
+              className="module-chip"
+              key={module}
+              onClick={() => onViewChange(['MIMO底座', 'Vitalife MemOS', '证据研究链', 'Agent OS', 'Skill市场'].includes(module) ? 'platform' : module === '专家智能体' ? 'agents' : 'capture')}
+              type="button"
+            >
               {module}
               <ChevronRight size={14} aria-hidden />
             </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PlatformOSPage({ capabilities, overview }: { capabilities: CapabilityModel; overview: Overview }) {
+  return (
+    <div className="page-grid">
+      <section className="hero-panel os-hero">
+        <div className="hero-copy">
+          <span className="risk low">Vitalife模式</span>
+          <h2>MIMO底座 + C端陪伴 + B端Agent OS</h2>
+          <p>{capabilities.positioning}</p>
+          <div className="hero-actions">
+            <span className="os-pill">{overview.activeAgents} 个活跃Agent</span>
+            <span className="os-pill">{capabilities.skills.length} 个已建Skill样例</span>
+            <span className="os-pill">{capabilities.agentTemplates.length} 个可编排模板</span>
+          </div>
+        </div>
+        <div className="os-stack">
+          {capabilities.layers.map((layer) => (
+            <div key={layer.id}>
+              <span>{layer.name}</span>
+              <strong>{layer.title}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Workflow} title="三层产品架构" action="Vitalife自有命名与边界" />
+        <div className="layer-grid">
+          {capabilities.layers.map((layer) => (
+            <article className="layer-card" key={layer.id}>
+              <span>{layer.name}</span>
+              <h3>{layer.title}</h3>
+              <p>{layer.summary}</p>
+              <div className="tag-row">
+                {layer.modules.map((module) => (
+                  <small key={module}>{module}</small>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={DatabaseZap} title="底座能力" action="记忆 / 研究链 / 证据" />
+        <div className="operation-list">
+          {capabilities.foundation.map((item) => (
+            <OperationItem key={item.id} title={`${item.name} · ${item.status}`} detail={item.capability} />
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={ClipboardCheck} title="商业落地打法" action="可复制Playbook" />
+        <div className="operation-list">
+          {capabilities.commercialPlays.map((play) => (
+            <OperationItem key={play.id} title={`${play.name} · ${play.partnerType}`} detail={play.playbook} />
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={BrainCircuit} title="Agent + Skill 可组装架构" action="从代码耦合到产品化编排" />
+        <div className="skill-grid">
+          {capabilities.skills.map((skill) => (
+            <article className="skill-card" key={skill.id}>
+              <div className="skill-card-head">
+                <strong>{skill.name}</strong>
+                <span>{skill.category}</span>
+              </div>
+              <p>{skill.description}</p>
+              <div className="io-grid">
+                <div>
+                  <small>输入</small>
+                  <span>{skill.inputs.join(' / ')}</span>
+                </div>
+                <div>
+                  <small>输出</small>
+                  <span>{skill.outputs.join(' / ')}</span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Network} title="企业Agent模板" action="医院 / 保险 / 药房 / 科研" />
+        <div className="template-grid">
+          {capabilities.agentTemplates.map((template) => (
+            <article className="template-card" key={template.id}>
+              <span>{template.scenario}</span>
+              <h3>{template.name}</h3>
+              <p>{template.outcome}</p>
+              <div className="tag-row">
+                {template.skills.map((skill) => (
+                  <small key={skill}>{skill}</small>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={ShieldCheck} title="Vitalife差异化纵深" action="不止健康管理" />
+        <div className="differentiator-grid">
+          {capabilities.differentiators.map((item) => (
+            <article className="differentiator-card" key={item.id}>
+              <strong>{item.title}</strong>
+              <p>{item.summary}</p>
+            </article>
           ))}
         </div>
       </section>

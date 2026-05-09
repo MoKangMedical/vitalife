@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import { z } from 'zod';
 import { runAnalysis } from './agents/orchestrator.js';
+import { capabilityModel } from './data/capabilities.js';
 import {
   getAnalysis,
   getPatient,
@@ -28,10 +29,16 @@ app.get('/api/platform/overview', (_req, res) => {
     users: patients.length,
     highRisk: patients.filter((patient) => patient.riskTier === 'high').length,
     monitoredDevices: 18,
-    activeAgents: 5,
+    activeAgents: 9,
+    reusableSkills: capabilityModel.skills.length,
+    agentTemplates: capabilityModel.agentTemplates.length,
     emergencyEvents: listEmergencies().length,
-    modules: ['采集终端', '质量控制', '专家智能体', '证据图谱', '融合仲裁', '交互闭环']
+    modules: ['MIMO底座', 'Vitalife MemOS', '证据研究链', 'Agent OS', 'Skill市场', '采集终端', '质量控制', '专家智能体', '证据图谱', '融合仲裁', '交互闭环']
   });
+});
+
+app.get('/api/platform/capabilities', (_req, res) => {
+  res.json(capabilityModel);
 });
 
 app.get('/api/patients', (_req, res) => {

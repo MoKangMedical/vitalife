@@ -281,7 +281,7 @@ button:disabled {
 .metric-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 
@@ -642,6 +642,156 @@ meter {
   background: #edf6f3;
   border: 1px solid #d5e6e1;
   border-radius: 999px;
+}
+
+.os-hero {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+.os-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  color: #21413e;
+  background: #ffffff;
+  border: 1px solid #d7e2df;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.os-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.os-stack div {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #dbe8e4;
+  border-radius: 8px;
+}
+
+.os-stack span,
+.layer-card span,
+.template-card span,
+.skill-card-head span {
+  color: #227469;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.os-stack strong {
+  color: #18212f;
+  line-height: 1.35;
+}
+
+.layer-grid,
+.template-grid,
+.differentiator-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.layer-card,
+.skill-card,
+.template-card,
+.differentiator-card {
+  display: grid;
+  gap: 10px;
+  min-height: 150px;
+  padding: 16px;
+  background: #f8fbfa;
+  border: 1px solid #e2ebe8;
+  border-radius: 8px;
+}
+
+.layer-card h3,
+.template-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.layer-card p,
+.skill-card p,
+.template-card p,
+.differentiator-card p {
+  margin: 0;
+  color: #5e7372;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tag-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-self: end;
+}
+
+.tag-row small {
+  min-height: 26px;
+  padding: 4px 8px;
+  color: #24403e;
+  background: #edf6f3;
+  border: 1px solid #d5e6e1;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skill-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.skill-card-head strong,
+.differentiator-card strong {
+  color: #18212f;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.io-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.io-grid div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid #e4edeb;
+  border-radius: 8px;
+}
+
+.io-grid small {
+  color: #227469;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.io-grid span {
+  color: #607574;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.differentiator-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .capture-frame {
@@ -1025,6 +1175,7 @@ textarea {
   }
 
   .hero-panel,
+  .os-hero,
   .two-column {
     grid-template-columns: 1fr;
   }
@@ -1085,6 +1236,10 @@ textarea {
   .page-grid,
   .metric-grid,
   .emergency-grid,
+  .layer-grid,
+  .skill-grid,
+  .template-grid,
+  .differentiator-grid,
   .report-summary,
   .checklist-grid {
     grid-template-columns: 1fr;

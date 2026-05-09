@@ -43,6 +43,14 @@ async function fetchOverview() {
   }
 }
 
+async function fetchCapabilities() {
+  try {
+    return await request('/api/platform/capabilities');
+  } catch (error) {
+    return mock.mockCapabilities();
+  }
+}
+
 async function fetchPatients() {
   try {
     const data = await request('/api/patients');
@@ -139,6 +147,7 @@ async function simulateEmergency(patient) {
 
 module.exports = {
   currentPatientId,
+  fetchCapabilities,
   fetchOverview,
   fetchPatient,
   fetchPatients,

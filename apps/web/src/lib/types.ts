@@ -36,8 +36,65 @@ export interface Overview {
   highRisk: number;
   monitoredDevices: number;
   activeAgents: number;
+  reusableSkills?: number;
+  agentTemplates?: number;
   emergencyEvents: number;
   modules: string[];
+}
+
+export interface CapabilityLayer {
+  id: string;
+  name: string;
+  title: string;
+  summary: string;
+  modules: string[];
+}
+
+export interface FoundationCapability {
+  id: string;
+  name: string;
+  capability: string;
+  status: string;
+}
+
+export interface SkillDefinition {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  inputs: string[];
+  outputs: string[];
+}
+
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  scenario: string;
+  skills: string[];
+  outcome: string;
+}
+
+export interface CommercialPlay {
+  id: string;
+  name: string;
+  partnerType: string;
+  playbook: string;
+}
+
+export interface Differentiator {
+  id: string;
+  title: string;
+  summary: string;
+}
+
+export interface CapabilityModel {
+  positioning: string;
+  layers: CapabilityLayer[];
+  foundation: FoundationCapability[];
+  skills: SkillDefinition[];
+  agentTemplates: AgentTemplate[];
+  commercialPlays: CommercialPlay[];
+  differentiators: Differentiator[];
 }
 
 export interface TimelinePoint {

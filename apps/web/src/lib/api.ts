@@ -1,5 +1,5 @@
-import { buildMockAnalysis, buildMockEmergency, mockOverview, mockPatients, mockTimeline } from './mock';
-import type { Analysis, EmergencyEvent, Overview, Patient, TimelinePoint } from './types';
+import { buildMockAnalysis, buildMockEmergency, mockCapabilities, mockOverview, mockPatients, mockTimeline } from './mock';
+import type { Analysis, CapabilityModel, EmergencyEvent, Overview, Patient, TimelinePoint } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787';
 
@@ -28,6 +28,14 @@ export async function fetchOverview(): Promise<Overview> {
     return await getJson<Overview>('/api/platform/overview');
   } catch {
     return mockOverview;
+  }
+}
+
+export async function fetchCapabilities(): Promise<CapabilityModel> {
+  try {
+    return await getJson<CapabilityModel>('/api/platform/capabilities');
+  } catch {
+    return mockCapabilities;
   }
 }
 

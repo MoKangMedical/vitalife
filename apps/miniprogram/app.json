@@ -3,6 +3,7 @@
     "pages/dashboard/dashboard",
     "pages/capture/capture",
     "pages/agents/agents",
+    "pages/os/os",
     "pages/report/report",
     "pages/emergency/emergency"
   ],

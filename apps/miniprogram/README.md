@@ -35,6 +35,7 @@ npm run dev
 - `pages/dashboard`：健康总览、患者切换、风险分、体征与闭环任务。
 - `pages/capture`：面部 ROI、掌腹 PPG、报告 OCR、基因 PRS 与隐私提示。
 - `pages/agents`：任务编排、质量控制、证据图谱、RiskPrompt。
+- `pages/os`：Vitalife Agent OS，展示三层架构、Agent + Skill、商业落地和差异化能力。
 - `pages/report`：周期健康报告、趋势摘要、医生复核。
 - `pages/emergency`：急救演练、通知链路、事件摘要。
 

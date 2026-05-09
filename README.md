@@ -5,6 +5,7 @@ Vitalife 是一个“多模态心血管与抗衰健康管理 Agent”平台原�
 ## 已实现平台
 
 - 用户健康总览：风险分、血管年龄偏离、实时体征、7 日趋势、闭环任务。
+- Vitalife Agent OS：MIMO底座、Vitalife MemOS、证据研究链、Agent + Skill 编排、Skill市场和企业Agent模板。
 - 多模态采集台：面部 ROI、PPG 复测、报告/基因上传状态、端侧隐私控制。
 - 智能体分析中心：任务编排流程、质量控制向量、专家证据表、RiskPrompt 输出。
 - 报告中心：周期健康报告、医生复核、家属同步、归档流程。
@@ -50,6 +51,7 @@ npm run check:miniprogram
 
 - `GET /health`
 - `GET /api/platform/overview`
+- `GET /api/platform/capabilities`
 - `GET /api/patients`
 - `GET /api/patients/:id`
 - `GET /api/patients/:id/timeline`
@@ -74,6 +76,15 @@ flowchart LR
   I --> J["健康教练/急救闭环"]
   J --> K["用户端/家属端/医生运营台"]
 ```
+
+## Vitalife 模式
+
+竞品启发不会直接复制为同名功能，仓库里已转成 Vitalife 自有产品体系：
+
+- 底座层：`MIMO Health Foundation`，包含 MIMO API、多模态证据图谱、Vitalife MemOS、Vitalife Research。
+- C端：`Vitalife Companion`，包含微信小程序、家庭健康管理、体检报告解读卡和急救联动。
+- B端：`Vitalife Agent OS`，通过 Agent + Skill 组装交付医院、保险、药房、体检中心、硬件厂商和科研制药场景。
+- 差异化：罕见病筛查、AI药物发现、66个Skill扩展能力和 MIMO API 成本优势。
 
 ## 医疗安全说明
 

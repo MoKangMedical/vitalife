@@ -1,0 +1,78 @@
+<view class="page">
+  <view class="hero" wx:if="{{capabilities}}">
+    <text class="eyebrow">Vitalife模式</text>
+    <text class="hero-title">MIMO底座 + C端陪伴 + B端Agent OS</text>
+    <text class="hero-subtitle">{{capabilities.positioning}}</text>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>三层产品架构</text>
+      <text>自有体系</text>
+    </view>
+    <view class="os-layer" wx:for="{{layers}}" wx:key="id">
+      <text class="os-kicker">{{item.name}}</text>
+      <text class="os-title">{{item.title}}</text>
+      <text class="list-desc">{{item.summary}}</text>
+      <view class="tag-row">
+        <text wx:for="{{item.modules}}" wx:key="*this">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>Agent + Skill</text>
+      <text>可组装</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{skills}}" wx:key="id">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item.name}} · {{item.category}}</text>
+          <text class="list-desc">{{item.description}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>企业Agent模板</text>
+      <text>场景化交付</text>
+    </view>
+    <view class="template-card" wx:for="{{templates}}" wx:key="id">
+      <text class="os-kicker">{{item.scenario}}</text>
+      <text class="os-title">{{item.name}}</text>
+      <text class="list-desc">{{item.outcome}}</text>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>商业落地</text>
+      <text>Playbook</text>
+    </view>
+    <view class="template-card" wx:for="{{plays}}" wx:key="id">
+      <text class="os-kicker">{{item.partnerType}}</text>
+      <text class="os-title">{{item.name}}</text>
+      <text class="list-desc">{{item.playbook}}</text>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>差异化纵深</text>
+      <text>MoKangMedical</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{differentiators}}" wx:key="id">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item.title}}</text>
+          <text class="list-desc">{{item.summary}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

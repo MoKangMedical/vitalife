@@ -103,9 +103,53 @@ function mockOverview() {
     users: patients.length,
     highRisk: patients.filter((patient) => patient.riskTier === 'high').length,
     monitoredDevices: 18,
-    activeAgents: 5,
+    activeAgents: 9,
+    reusableSkills: 9,
+    agentTemplates: 5,
     emergencyEvents: 0,
-    modules: ['采集终端', '质量控制', '专家智能体', '证据图谱', '融合仲裁', '交互闭环']
+    modules: ['MIMO底座', 'Vitalife MemOS', '证据研究链', 'Agent OS', 'Skill市场', '采集终端', '质量控制', '专家智能体', '证据图谱', '融合仲裁', '交互闭环']
+  };
+}
+
+function mockCapabilities() {
+  return {
+    positioning: 'Vitalife 采用 MIMO API 多模态底座 + C端长期健康陪伴 + B端 Agent OS 开放平台的三层模式，并向罕见病筛查和药物发现延伸。',
+    layers: [
+      { id: 'foundation', name: '底座层', title: 'MIMO Health Foundation', summary: '统一接入文本、报告、面部视觉、PPG/ECG、家庭设备、基因PRS和症状轨迹。', modules: ['MIMO API', 'Vitalife MemOS', 'Vitalife Research', '证据图谱'] },
+      { id: 'consumer', name: 'C端', title: 'Vitalife Companion', summary: '面向老人、家属和慢病人群，提供长期健康记忆、报告解读、复测提醒和体检报告解读卡。', modules: ['微信小程序', '报告卡', '家属同步', '急救联动'] },
+      { id: 'business', name: 'B端', title: 'Vitalife Agent OS', summary: '以 Agent + Skill 的可组装模式开放给医院、保险、药房、体检中心和硬件厂商。', modules: ['Agent编排', 'Skill市场', '企业API', '审计'] }
+    ],
+    skills: [
+      { id: 'skill-report-card', name: '体检报告解读卡', category: 'C端获客', description: '把AI报告解读物化成线下卡片/兑换码，连接体检中心、药房和小程序。' },
+      { id: 'skill-long-memory', name: '长期健康记忆', category: '底座', description: '沉淀个人基线、关键事件、干预响应和家属沟通历史。' },
+      { id: 'skill-research-chain', name: '证据研究链', category: '底座', description: '执行检索、证据补全、解释生成和审计留痕。' },
+      { id: 'skill-device-gateway', name: '硬件数据网关', category: '数据入口', description: '接入血压计、血糖仪、手环、PPG/ECG设备和家庭健康终端。' },
+      { id: 'skill-insurance', name: '保险支付与风控', category: '商业闭环', description: '生成健康管理计划、干预合规记录和理赔前后支持证据。' },
+      { id: 'skill-hospital', name: '院内院外联动', category: '医疗协作', description: '把小程序复测、报告摘要和急性预警工单同步到医生/运营台。' },
+      { id: 'skill-pharmacy', name: '药房健康管理', category: '零售药房', description: '支持报告卡兑换、慢病随访、OTC用药提醒和门店服务工单。' },
+      { id: 'skill-rare-disease', name: '罕见病筛查', category: '差异化', description: '结合症状、家族史、基因线索和多模态异常，触发鉴别诊断提示。' },
+      { id: 'skill-drug-discovery', name: 'AI药物发现', category: '差异化', description: '把真实世界表型与靶点、适应症和药物重定位线索连接。' }
+    ],
+    agentTemplates: [
+      { id: 'template-checkup', name: '体检报告增长Agent', scenario: '体检中心/药房获客', outcome: '把单次体检解读转化为小程序长期健康管理用户。' },
+      { id: 'template-chronic', name: '慢病随访Agent', scenario: '医院/药房/家庭医生', outcome: '形成复测、随访、医生复核和异常升级闭环。' },
+      { id: 'template-insurance', name: '保险健康管理Agent', scenario: '商业保险/养老险', outcome: '支撑保前分层、保中干预和理赔服务证据链。' },
+      { id: 'template-rare', name: '罕见病线索Agent', scenario: '专病中心/科研合作', outcome: '将长期健康轨迹异常模式转化为诊疗端线索。' },
+      { id: 'template-drug', name: '药物发现Agent', scenario: '制药/科研', outcome: '围绕表型、适应症和靶点生成可验证研究假设。' }
+    ],
+    commercialPlays: [
+      { id: 'hardware', name: '硬件数据入口', partnerType: '设备厂商', playbook: '设备数据进入 Vitalife 后自动生成个性化报告和复测任务。' },
+      { id: 'insurance', name: '保险+健康管理', partnerType: '商业保险', playbook: '形成保前评估、保中干预、理赔支持和续保服务。' },
+      { id: 'hospital', name: '院内院外联动', partnerType: '医院/体检中心', playbook: '把院外复测和预警转化为医生复核队列与随访任务。' },
+      { id: 'pharmacy', name: '药房健康管理', partnerType: '连锁药房', playbook: '通过报告卡和门店健康服务导入长期健康管理。' },
+      { id: 'finance', name: '金融服务场景', partnerType: '银行/企业客户', playbook: '以家庭健康档案和养老服务包增强客户经营。' }
+    ],
+    differentiators: [
+      { id: 'rare-disease-depth', title: '罕见病诊断纵深', summary: '从健康管理延伸到罕见病线索。' },
+      { id: 'drug-discovery', title: 'AI制药与药物发现', summary: '连接真实世界表型、靶点和适应症。' },
+      { id: 'skill-coverage', title: '66个Skill可扩展', summary: '覆盖诊断、制药、药学、健康管理、保险和运营。' },
+      { id: 'mimo-cost', title: 'MIMO API成本优势', summary: '支撑高频长期陪伴和企业级调用。' }
+    ]
   };
 }
 
@@ -234,5 +278,6 @@ module.exports = {
   buildMockAnalysis,
   buildMockEmergency,
   getPatient,
+  mockCapabilities,
   mockOverview
 };

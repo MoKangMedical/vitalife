@@ -91,5 +91,9 @@ Page({
     wx.hideLoading();
     this.present(patient, analysis);
     wx.showToast({ title: '分析完成', icon: 'success' });
+  },
+
+  goOS() {
+    wx.navigateTo({ url: '/pages/os/os' });
   }
 });
