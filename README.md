@@ -31,6 +31,11 @@ npm run dev
 
 打开 `http://localhost:5173`。API 默认运行在 `http://localhost:8787`。
 
+GitHub Pages：
+
+- `https://mokangmedical.github.io/vitalife/`
+- `https://mokangmedical.github.io/vitalife/#/agent-os`
+
 可直接浏览的 Web 页面：
 
 - 健康总览：`http://localhost:5173/#/overview`
