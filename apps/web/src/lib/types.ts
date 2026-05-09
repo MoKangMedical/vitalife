@@ -1,0 +1,138 @@
+export type RiskTier = 'low' | 'medium' | 'high';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Patient {
+  id: string;
+  name: string;
+  age: number;
+  sex: 'female' | 'male';
+  plan: string;
+  riskTier: RiskTier;
+  caregiver: string;
+  phoneMasked: string;
+  conditions: string[];
+  baseline: {
+    restingHr: number;
+    hrv: number;
+    vascularAge: number;
+    faceAge: number;
+    cadRisk: number;
+    spo2: number;
+  };
+  latest: {
+    heartRate: number;
+    hrv: number;
+    spo2: number;
+    systolic: number;
+    diastolic: number;
+    sleepScore: number;
+    steps: number;
+    updatedAt: string;
+  };
+}
+
+export interface Overview {
+  users: number;
+  highRisk: number;
+  monitoredDevices: number;
+  activeAgents: number;
+  emergencyEvents: number;
+  modules: string[];
+}
+
+export interface TimelinePoint {
+  id: string;
+  day: string;
+  timestamp: string;
+  heartRate: number;
+  hrv: number;
+  risk: number;
+}
+
+export interface TaskNode {
+  step: string;
+  label: string;
+  status: 'queued' | 'running' | 'completed' | 'blocked';
+}
+
+export interface QualityVector {
+  modality: string;
+  score: number;
+  flags: string[];
+  status: 'usable' | 'review' | 'blocked';
+}
+
+export interface Evidence {
+  id: string;
+  riskType: string;
+  source: string;
+  label: string;
+  value: number;
+  unit: string;
+  direction: 'urgent' | 'risk_up' | 'watch' | 'neutral';
+  confidence: number;
+  explanation: string;
+}
+
+export interface AgentResult {
+  agent: string;
+  status: string;
+  evidence: Evidence[];
+}
+
+export interface EvidenceNode {
+  id: string;
+  label: string;
+  score: number;
+}
+
+export interface KnowledgeReference {
+  id: string;
+  title: string;
+  source: string;
+  summary: string;
+}
+
+export interface Analysis {
+  id: string;
+  patient: Patient;
+  taskGraph: TaskNode[];
+  qualityVectors: QualityVector[];
+  agentResults: AgentResult[];
+  fusion: {
+    agent: string;
+    status: string;
+    riskPrompt: {
+      patientId: string;
+      generatedAt: string;
+      riskLevel: RiskLevel;
+      riskScore: number;
+      emergencyFlag: boolean;
+      vascularAgeDelta: number;
+      agingIndex: number;
+      summary: string;
+    };
+    evidence: Evidence[];
+    evidenceGraph: {
+      nodes: EvidenceNode[];
+      references: KnowledgeReference[];
+    };
+  };
+  coach: {
+    agent: string;
+    status: string;
+    actionList: string[];
+    tone: 'coach' | 'emergency';
+    message: string;
+  };
+}
+
+export interface EmergencyEvent {
+  id: string;
+  patientId: string;
+  patientName: string;
+  createdAt: string;
+  status: string;
+  riskPrompt: Analysis['fusion']['riskPrompt'];
+  actionList: string[];
+}

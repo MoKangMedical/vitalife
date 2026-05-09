@@ -1,0 +1,23 @@
+{
+  "name": "vitalife",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vitalife multi-modal cardiovascular and anti-aging health management agent platform.",
+  "workspaces": [
+    "apps/web",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w apps/web",
+    "start": "npm run start -w apps/api",
+    "check": "npm run check -w apps/web && npm run check -w apps/api",
+    "test": "npm run test -w apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
