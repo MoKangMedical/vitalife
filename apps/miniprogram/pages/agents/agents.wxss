@@ -1,0 +1,121 @@
+.prompt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.prompt-score {
+  color: #18212f;
+  font-size: 62rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.prompt-json {
+  display: block;
+  white-space: pre-wrap;
+  padding: 20rpx;
+  color: #1d3331;
+  background: #f7faf9;
+  border: 1rpx solid #e0e9e6;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.55;
+}
+
+.task-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.task-line {
+  display: inline-flex;
+  gap: 14rpx;
+  min-width: 100%;
+}
+
+.task-node {
+  display: grid;
+  gap: 8rpx;
+  width: 190rpx;
+  min-height: 146rpx;
+  padding: 18rpx;
+  white-space: normal;
+  background: #f8fbfa;
+  border: 1rpx solid #dbe8e4;
+  border-radius: 12rpx;
+}
+
+.task-step {
+  color: #227469;
+  font-size: 25rpx;
+  font-weight: 900;
+}
+
+.task-label {
+  color: #263a39;
+  font-size: 24rpx;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.task-status {
+  color: #657878;
+  font-size: 22rpx;
+}
+
+.quality-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10rpx 16rpx;
+  align-items: center;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #edf2f1;
+}
+
+.quality-row:last-child {
+  border-bottom: 0;
+}
+
+.quality-score {
+  color: #227469;
+  font-size: 25rpx;
+  font-weight: 900;
+}
+
+.quality-track {
+  grid-column: 1 / -1;
+  height: 14rpx;
+  overflow: hidden;
+  background: #e3ece9;
+  border-radius: 999rpx;
+}
+
+.quality-fill {
+  height: 100%;
+  background: #227469;
+}
+
+.graph-row {
+  display: grid;
+  grid-template-columns: 150rpx 1fr 70rpx;
+  gap: 14rpx;
+  align-items: center;
+  min-height: 56rpx;
+  color: #263a39;
+  font-size: 24rpx;
+}
+
+.graph-fill {
+  height: 100%;
+  background: #bd4d3b;
+}
+
+.evidence-meta {
+  display: block;
+  margin-top: 8rpx;
+  color: #227469;
+  font-size: 22rpx;
+  font-weight: 800;
+}

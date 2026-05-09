@@ -1,0 +1,40 @@
+.emergency-hero {
+  padding: 34rpx 30rpx;
+  background: #fff1ec;
+  border: 1rpx solid #ffd9cb;
+  border-radius: 16rpx;
+}
+
+.emergency-title {
+  display: block;
+  margin-top: 18rpx;
+  color: #18212f;
+  font-size: 40rpx;
+  font-weight: 900;
+  line-height: 1.22;
+}
+
+.emergency-copy {
+  display: block;
+  margin-top: 12rpx;
+  color: #6f4e45;
+  font-size: 25rpx;
+  line-height: 1.65;
+}
+
+.danger-metric .metric-value {
+  color: #bd4d3b;
+}
+
+.chain-dot {
+  width: 18rpx;
+  height: 18rpx;
+  margin-top: 10rpx;
+  background: #b8c8c4;
+  border-radius: 999rpx;
+  flex: 0 0 auto;
+}
+
+.chain-item.done .chain-dot {
+  background: #227469;
+}

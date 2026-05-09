@@ -1,0 +1,46 @@
+{
+  "pages": [
+    "pages/dashboard/dashboard",
+    "pages/capture/capture",
+    "pages/agents/agents",
+    "pages/report/report",
+    "pages/emergency/emergency"
+  ],
+  "window": {
+    "navigationBarTitleText": "Vitalife",
+    "navigationBarBackgroundColor": "#173E3D",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F7F8",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#647776",
+    "selectedColor": "#227469",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/dashboard/dashboard",
+        "text": "总览"
+      },
+      {
+        "pagePath": "pages/capture/capture",
+        "text": "采集"
+      },
+      {
+        "pagePath": "pages/agents/agents",
+        "text": "智能体"
+      },
+      {
+        "pagePath": "pages/report/report",
+        "text": "报告"
+      },
+      {
+        "pagePath": "pages/emergency/emergency",
+        "text": "急救"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

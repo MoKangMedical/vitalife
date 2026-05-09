@@ -1,0 +1,76 @@
+<view class="page">
+  <view class="hero">
+    <text class="eyebrow">端侧采集</text>
+    <text class="hero-title">面部、PPG、报告与基因统一入口</text>
+    <text class="hero-subtitle">小程序负责引导采集、脱敏上传和复测任务，复杂模型仍由后端 Agent 管线处理。</text>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>面部视觉采集</text>
+      <text>FaceAge / CAD</text>
+    </view>
+    <view class="face-capture">
+      <view class="face-mask">
+        <view class="head"></view>
+        <text>ROI</text>
+      </view>
+      <view class="list">
+        <view class="list-item" wx:for="{{captureChecks}}" wx:key="*this">
+          <view class="list-dot"></view>
+          <view class="list-content">
+            <text class="list-title">{{item}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>掌腹PPG复测</text>
+      <text>{{progressText}}</text>
+    </view>
+    <view class="ppg-card">
+      <view class="progress-track">
+        <view class="progress-fill" style="width: {{progress}}%;"></view>
+      </view>
+      <text class="muted">建议连续采集 60 秒，若运动伪差过高则自动提示重测。</text>
+      <view class="button-row">
+        <button class="btn primary" bindtap="startCapture">{{capturing ? '采集中' : '开始采集'}}</button>
+        <button class="btn" bindtap="runWindowAnalysis">分析窗口</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>报告与基因</text>
+      <text>OCR + PRS</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{uploads}}" wx:key="title">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item.title}}</text>
+          <text class="list-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>隐私与合规</text>
+      <text>端云协同</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{privacy}}" wx:key="*this">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

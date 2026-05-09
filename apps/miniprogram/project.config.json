@@ -1,0 +1,26 @@
+{
+  "appid": "touristappid",
+  "projectname": "vitalife",
+  "description": "Vitalife 多模态心血管与抗衰健康管理 Agent 微信小程序",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true
+  },
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "健康总览",
+          "pathName": "pages/dashboard/dashboard",
+          "query": ""
+        }
+      ]
+    }
+  }
+}

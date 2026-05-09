@@ -1,0 +1,87 @@
+.report-sheet {
+  padding: 30rpx;
+  background: #ffffff;
+  border: 1rpx solid #e1ebe8;
+  border-radius: 16rpx;
+}
+
+.report-kicker {
+  display: block;
+  color: #227469;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
+.report-title {
+  display: block;
+  margin-top: 12rpx;
+  color: #18212f;
+  font-size: 38rpx;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.report-meta,
+.report-copy {
+  display: block;
+  margin-top: 10rpx;
+  color: #596d6b;
+  font-size: 25rpx;
+  line-height: 1.65;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12rpx;
+  margin-top: 28rpx;
+}
+
+.summary-item {
+  display: grid;
+  gap: 8rpx;
+  min-height: 128rpx;
+  padding: 16rpx;
+  background: #f8fbfa;
+  border: 1rpx solid #e2ebe8;
+  border-radius: 12rpx;
+}
+
+.summary-item text:first-child {
+  color: #657878;
+  font-size: 22rpx;
+}
+
+.summary-item text:last-child {
+  color: #18212f;
+  font-size: 31rpx;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.report-block {
+  margin-top: 30rpx;
+}
+
+.report-trend {
+  display: grid;
+  grid-template-columns: 70rpx 1fr 50rpx;
+  gap: 14rpx;
+  align-items: center;
+  min-height: 56rpx;
+  color: #647776;
+  font-size: 23rpx;
+}
+
+.trend-track {
+  height: 13rpx;
+  overflow: hidden;
+  background: #e3ece9;
+  border-radius: 999rpx;
+}
+
+.trend-fill {
+  height: 100%;
+  background: #bd4d3b;
+  border-radius: 999rpx;
+}

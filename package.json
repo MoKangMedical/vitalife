@@ -11,7 +11,8 @@
     "dev": "concurrently -n api,web -c cyan,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build -w apps/web",
     "start": "npm run start -w apps/api",
-    "check": "npm run check -w apps/web && npm run check -w apps/api",
+    "check": "npm run check -w apps/web && npm run check -w apps/api && npm run check:miniprogram",
+    "check:miniprogram": "node apps/miniprogram/tools/check.js",
     "test": "npm run test -w apps/api"
   },
   "devDependencies": {

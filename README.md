@@ -11,11 +11,13 @@ Vitalife 是一个“多模态心血管与抗衰健康管理 Agent”平台原�
 - 医生/运营台：人群分层队列、复核队列、医生备注。
 - 急救联动台：急性事件演练、端侧提醒、家属通知、审计日志流程。
 - 系统设置：授权、隐私、接口、上线检查清单。
+- 微信小程序端：老人/家属侧移动入口，覆盖总览、采集、智能体、报告、急救五个 Tab。
 
 ## 工程结构
 
 - `apps/web`：React + Vite 前端平台。
 - `apps/api`：Express API 与可替换的多智能体分析管线。
+- `apps/miniprogram`：原生微信小程序端，可导入微信开发者工具。
 - `.github/workflows/ci.yml`：GitHub Actions 类型检查、构建和冒烟测试。
 - `docker-compose.yml`：API + Web 容器化演示。
 
@@ -35,6 +37,14 @@ npm run check
 npm run build
 npm test
 ```
+
+微信小程序：
+
+```bash
+npm run check:miniprogram
+```
+
+然后用微信开发者工具导入 `apps/miniprogram`。本地联调 API 时，先运行 `npm run dev`，并在微信开发者工具中打开“不校验合法域名、web-view、TLS 版本以及 HTTPS 证书”。生产发布时需要替换为 HTTPS API 域名并配置微信合法域名。
 
 ## API
 

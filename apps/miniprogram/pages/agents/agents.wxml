@@ -1,0 +1,86 @@
+<view class="page">
+  <view class="hero">
+    <text class="eyebrow">Agent Orchestration</text>
+    <text class="hero-title">多专家智能体并行分析</text>
+    <text class="hero-subtitle">{{summary}}</text>
+    <view class="button-row">
+      <button class="btn primary" bindtap="handleRunAnalysis">运行智能体</button>
+    </view>
+  </view>
+
+  <view class="section card" wx:if="{{analysis}}">
+    <view class="section-title">
+      <text>RiskPrompt</text>
+      <text>{{patient.id}}</text>
+    </view>
+    <view class="prompt-head">
+      <text class="risk {{riskLevel}}">{{riskText}}</text>
+      <text class="prompt-score">{{riskScore}}</text>
+    </view>
+    <text class="prompt-json">{{promptJson}}</text>
+  </view>
+
+  <view class="section card" wx:if="{{!analysis}}">
+    <view class="empty">暂无本次分析结果，请点击“运行智能体”。</view>
+  </view>
+
+  <view class="section card" wx:if="{{taskGraph.length}}">
+    <view class="section-title">
+      <text>任务编排流程</text>
+      <text>S101-S110</text>
+    </view>
+    <scroll-view scroll-x class="task-scroll">
+      <view class="task-line">
+        <view class="task-node" wx:for="{{taskGraph}}" wx:key="step">
+          <text class="task-step">{{item.step}}</text>
+          <text class="task-label">{{item.label}}</text>
+          <text class="task-status">{{item.statusText}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="section card" wx:if="{{qualityRows.length}}">
+    <view class="section-title">
+      <text>质量控制向量</text>
+      <text>低质数据降权</text>
+    </view>
+    <view class="quality-row" wx:for="{{qualityRows}}" wx:key="modality">
+      <view>
+        <text class="list-title">{{item.label}}</text>
+        <text class="list-desc">{{item.flagsText}}</text>
+      </view>
+      <text class="quality-score">{{item.scoreText}}</text>
+      <view class="quality-track"><view class="quality-fill" style="width: {{item.width}};"></view></view>
+    </view>
+  </view>
+
+  <view class="section card" wx:if="{{graphNodes.length}}">
+    <view class="section-title">
+      <text>证据图谱</text>
+      <text>融合仲裁</text>
+    </view>
+    <view class="graph-row" wx:for="{{graphNodes}}" wx:key="id">
+      <text>{{item.label}}</text>
+      <view class="quality-track"><view class="graph-fill" style="width: {{item.width}};"></view></view>
+      <text>{{item.scoreText}}</text>
+    </view>
+  </view>
+
+  <view class="section card" wx:if="{{evidenceRows.length}}">
+    <view class="section-title">
+      <text>专家证据</text>
+      <text>并行分析</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{evidenceRows}}" wx:key="id">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item.agent}} · {{item.label}}</text>
+          <text class="list-desc">{{item.explanation}}</text>
+          <text class="evidence-meta">{{item.direction}} · {{item.confidence}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,61 @@
+.face-capture {
+  display: flex;
+  gap: 20rpx;
+  align-items: center;
+}
+
+.face-mask {
+  position: relative;
+  display: flex;
+  width: 220rpx;
+  height: 220rpx;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  background: #f2f8f6;
+  border: 1rpx solid #d8e8e4;
+  border-radius: 16rpx;
+}
+
+.head {
+  width: 92rpx;
+  height: 122rpx;
+  border: 6rpx solid #227469;
+  border-radius: 46rpx 46rpx 36rpx 36rpx;
+}
+
+.face-mask text {
+  position: absolute;
+  bottom: 22rpx;
+  color: #52706c;
+  font-size: 23rpx;
+  font-weight: 800;
+}
+
+.ppg-card {
+  display: grid;
+  gap: 18rpx;
+}
+
+.progress-track {
+  height: 24rpx;
+  overflow: hidden;
+  background: #e1ebe8;
+  border-radius: 999rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #4575b7;
+  border-radius: 999rpx;
+}
+
+@media (max-width: 360px) {
+  .face-capture {
+    display: block;
+  }
+
+  .face-mask {
+    margin-bottom: 18rpx;
+  }
+}
