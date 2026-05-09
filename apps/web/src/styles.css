@@ -102,6 +102,7 @@ button:disabled {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 8px;
+  text-decoration: none;
   text-align: left;
 }
 

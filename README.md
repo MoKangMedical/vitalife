@@ -31,6 +31,17 @@ npm run dev
 
 打开 `http://localhost:5173`。API 默认运行在 `http://localhost:8787`。
 
+可直接浏览的 Web 页面：
+
+- 健康总览：`http://localhost:5173/#/overview`
+- Agent OS：`http://localhost:5173/#/agent-os`
+- 多模态采集：`http://localhost:5173/#/capture`
+- 智能体分析：`http://localhost:5173/#/agents`
+- 报告中心：`http://localhost:5173/#/reports`
+- 医生运营台：`http://localhost:5173/#/clinician`
+- 急救联动：`http://localhost:5173/#/emergency`
+- 系统设置：`http://localhost:5173/#/settings`
+
 ## 常用命令
 
 ```bash

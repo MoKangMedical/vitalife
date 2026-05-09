@@ -44,6 +44,28 @@ const navigation: Array<{ id: ViewId; label: string; icon: typeof LayoutDashboar
   { id: 'settings', label: '系统设置', icon: Settings }
 ];
 
+const routeByView: Record<ViewId, string> = {
+  overview: 'overview',
+  platform: 'agent-os',
+  capture: 'capture',
+  agents: 'agents',
+  reports: 'reports',
+  clinician: 'clinician',
+  emergency: 'emergency',
+  settings: 'settings'
+};
+
+const viewByRoute = Object.fromEntries(Object.entries(routeByView).map(([view, route]) => [route, view])) as Record<string, ViewId>;
+
+function routeHash(view: ViewId) {
+  return `#/${routeByView[view]}`;
+}
+
+function readRouteView(): ViewId {
+  const hashRoute = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+  return viewByRoute[hashRoute] ?? 'overview';
+}
+
 const riskLabels: Record<RiskLevel | RiskTier, string> = {
   low: '低风险',
   medium: '中风险',
@@ -87,7 +109,7 @@ function modalityName(name: string) {
 }
 
 export default function App() {
-  const [activeView, setActiveView] = useState<ViewId>('overview');
+  const [activeView, setActiveView] = useState<ViewId>(() => readRouteView());
   const [overview, setOverview] = useState<Overview | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
@@ -96,6 +118,16 @@ export default function App() {
   const [capabilities, setCapabilities] = useState<CapabilityModel | null>(null);
   const [running, setRunning] = useState(false);
   const [emergency, setEmergency] = useState<EmergencyEvent | null>(null);
+
+  useEffect(() => {
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${routeHash('overview')}`);
+    }
+
+    const syncRoute = () => setActiveView(readRouteView());
+    window.addEventListener('hashchange', syncRoute);
+    return () => window.removeEventListener('hashchange', syncRoute);
+  }, []);
 
   useEffect(() => {
     void Promise.all([fetchOverview(), fetchPatients(), fetchCapabilities()]).then(([nextOverview, nextPatients, nextCapabilities]) => {
@@ -119,13 +151,21 @@ export default function App() {
     [patients, selectedPatientId]
   );
 
+  function navigateToView(view: ViewId) {
+    const nextHash = routeHash(view);
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+    setActiveView(view);
+  }
+
   async function handleRunAnalysis() {
     if (!selectedPatient) return;
     setRunning(true);
     try {
       const nextAnalysis = await runAnalysis(selectedPatient);
       setAnalysis(nextAnalysis);
-      setActiveView('agents');
+      navigateToView('agents');
     } finally {
       setRunning(false);
     }
@@ -138,7 +178,7 @@ export default function App() {
       const result = await simulateEmergency(selectedPatient.id, selectedPatient);
       setEmergency(result.event);
       setAnalysis(result.analysis);
-      setActiveView('emergency');
+      navigateToView('emergency');
     } finally {
       setRunning(false);
     }
@@ -158,7 +198,7 @@ export default function App() {
             series={timeline}
             onEmergency={handleEmergency}
             onRunAnalysis={handleRunAnalysis}
-            onViewChange={setActiveView}
+            onViewChange={navigateToView}
           />
         );
       case 'platform':
@@ -212,15 +252,15 @@ export default function App() {
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
-              <button
+              <a
                 className={activeView === item.id ? 'nav-item active' : 'nav-item'}
+                href={routeHash(item.id)}
                 key={item.id}
                 onClick={() => setActiveView(item.id)}
-                type="button"
               >
                 <Icon size={18} aria-hidden />
                 <span>{item.label}</span>
-              </button>
+              </a>
             );
           })}
         </nav>
