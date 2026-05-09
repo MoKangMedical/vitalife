@@ -13,7 +13,8 @@
     "start": "npm run start -w apps/api",
     "check": "npm run check -w apps/web && npm run check -w apps/api && npm run check:miniprogram",
     "check:miniprogram": "node apps/miniprogram/tools/check.js",
-    "test": "npm run test -w apps/api"
+    "test": "npm run test -w apps/api && npm run test:miniprogram",
+    "test:miniprogram": "node apps/miniprogram/tools/smoke-test.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

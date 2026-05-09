@@ -42,3 +42,12 @@ npm run dev
 ## 数据策略
 
 小程序会优先请求 `apps/api` 服务；如果本地 API 不可用，会自动落到内置模拟数据，便于快速查看界面和交互。
+
+## 测试
+
+```bash
+npm run check:miniprogram
+npm run test:miniprogram
+```
+
+`check:miniprogram` 会检查配置、页面文件和脚本语法；`test:miniprogram` 会模拟微信运行时，执行总览、采集、智能体、Agent OS、报告和急救页面的数据加载与关键交互。

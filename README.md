@@ -48,12 +48,14 @@ npm run dev
 npm run check
 npm run build
 npm test
+npm run test:miniprogram
 ```
 
 微信小程序：
 
 ```bash
 npm run check:miniprogram
+npm run test:miniprogram
 ```
 
 然后用微信开发者工具导入 `apps/miniprogram`。本地联调 API 时，先运行 `npm run dev`，并在微信开发者工具中打开“不校验合法域名、web-view、TLS 版本以及 HTTPS 证书”。生产发布时需要替换为 HTTPS API 域名并配置微信合法域名。
