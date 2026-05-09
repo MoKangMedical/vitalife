@@ -28,8 +28,33 @@ import {
   Workflow
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { fetchCapabilities, fetchOverview, fetchPatient, fetchPatients, fetchTimeline, runAnalysis, simulateEmergency } from './lib/api';
-import type { Analysis, CapabilityModel, EmergencyEvent, Overview, Patient, RiskLevel, RiskTier, TimelinePoint } from './lib/types';
+import {
+  composeAgent,
+  fetchCapabilities,
+  fetchOverview,
+  fetchPatient,
+  fetchPatientMemory,
+  fetchPatients,
+  fetchTimeline,
+  redeemReportCard,
+  runAnalysis,
+  simulateEmergency,
+  syncDevice
+} from './lib/api';
+import type {
+  AgentBuild,
+  Analysis,
+  CapabilityModel,
+  DeviceEvent,
+  EmergencyEvent,
+  Overview,
+  Patient,
+  PatientMemory,
+  ReportCard,
+  RiskLevel,
+  RiskTier,
+  TimelinePoint
+} from './lib/types';
 
 type ViewId = 'overview' | 'platform' | 'capture' | 'agents' | 'reports' | 'clinician' | 'emergency' | 'settings';
 
@@ -118,6 +143,7 @@ export default function App() {
   const [capabilities, setCapabilities] = useState<CapabilityModel | null>(null);
   const [running, setRunning] = useState(false);
   const [emergency, setEmergency] = useState<EmergencyEvent | null>(null);
+  const [memory, setMemory] = useState<PatientMemory | null>(null);
 
   useEffect(() => {
     if (!window.location.hash) {
@@ -140,9 +166,10 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedPatientId) return;
-    void Promise.all([fetchPatient(selectedPatientId), fetchTimeline(selectedPatientId)]).then(([detail, series]) => {
+    void Promise.all([fetchPatient(selectedPatientId), fetchTimeline(selectedPatientId)]).then(async ([detail, series]) => {
       setAnalysis(detail.analysis);
       setTimeline(series);
+      setMemory(await fetchPatientMemory(detail.patient));
     });
   }, [selectedPatientId]);
 
@@ -184,6 +211,31 @@ export default function App() {
     }
   }
 
+  async function handleRedeemReportCard() {
+    if (!selectedPatient) return null;
+    setRunning(true);
+    try {
+      const card = await redeemReportCard(selectedPatient, `VITA-${selectedPatient.id.toUpperCase()}-2026`);
+      setMemory(await fetchPatientMemory(selectedPatient));
+      return card;
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function handleDeviceSync() {
+    if (!selectedPatient) return null;
+    setRunning(true);
+    try {
+      const result = await syncDevice(selectedPatient);
+      setAnalysis(result.analysis);
+      setMemory(await fetchPatientMemory(selectedPatient));
+      return result.event;
+    } finally {
+      setRunning(false);
+    }
+  }
+
   const content = (() => {
     if (!selectedPatient || !overview) return <LoadingState />;
     switch (activeView) {
@@ -204,7 +256,16 @@ export default function App() {
       case 'platform':
         return capabilities ? <PlatformOSPage capabilities={capabilities} overview={overview} /> : <LoadingState />;
       case 'capture':
-        return <CapturePage patient={selectedPatient} onRunAnalysis={handleRunAnalysis} running={running} />;
+        return (
+          <CapturePage
+            memory={memory}
+            patient={selectedPatient}
+            running={running}
+            onDeviceSync={handleDeviceSync}
+            onRedeemCard={handleRedeemReportCard}
+            onRunAnalysis={handleRunAnalysis}
+          />
+        );
       case 'agents':
         return <AgentStudio analysis={analysis} patient={selectedPatient} running={running} onRunAnalysis={handleRunAnalysis} />;
       case 'reports':
@@ -409,6 +470,35 @@ function OverviewPage({
 }
 
 function PlatformOSPage({ capabilities, overview }: { capabilities: CapabilityModel; overview: Overview }) {
+  const [selectedTemplateId, setSelectedTemplateId] = useState(capabilities.agentTemplates[0]?.id ?? '');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [tenant, setTenant] = useState('杭州体检中心沙盒');
+  const [channel, setChannel] = useState('wechat_miniprogram');
+  const [composing, setComposing] = useState(false);
+  const [build, setBuild] = useState<AgentBuild | null>(null);
+
+  const selectedTemplate = capabilities.agentTemplates.find((template) => template.id === selectedTemplateId) ?? capabilities.agentTemplates[0];
+
+  useEffect(() => {
+    const templateSkills =
+      selectedTemplate?.skills.map((skillName) => capabilities.skills.find((skill) => skill.name === skillName)?.id ?? skillName) ?? [];
+    setSelectedSkillIds(templateSkills);
+  }, [capabilities.skills, selectedTemplate]);
+
+  function toggleSkill(skillId: string) {
+    setSelectedSkillIds((current) => (current.includes(skillId) ? current.filter((id) => id !== skillId) : [...current, skillId]));
+  }
+
+  async function handleCompose() {
+    if (!selectedTemplate) return;
+    setComposing(true);
+    try {
+      setBuild(await composeAgent(selectedTemplate.id, selectedSkillIds, tenant, channel));
+    } finally {
+      setComposing(false);
+    }
+  }
+
   return (
     <div className="page-grid">
       <section className="hero-panel os-hero">
@@ -429,6 +519,93 @@ function PlatformOSPage({ capabilities, overview }: { capabilities: CapabilityMo
               <strong>{layer.title}</strong>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Workflow} title="Agent OS 编排控制台" action={build?.status ?? '可视化组装'} />
+        <div className="builder-grid">
+          <div className="builder-column">
+            <label className="field-label">
+              企业租户
+              <input value={tenant} onChange={(event) => setTenant(event.target.value)} />
+            </label>
+            <label className="field-label">
+              交付渠道
+              <select value={channel} onChange={(event) => setChannel(event.target.value)}>
+                <option value="wechat_miniprogram">微信小程序</option>
+                <option value="clinic_console">医生运营台</option>
+                <option value="partner_api">企业API</option>
+                <option value="pharmacy_counter">药房门店</option>
+              </select>
+            </label>
+            <div className="choice-grid">
+              {capabilities.agentTemplates.map((template) => (
+                <button
+                  className={template.id === selectedTemplate?.id ? 'choice-card selected' : 'choice-card'}
+                  key={template.id}
+                  onClick={() => setSelectedTemplateId(template.id)}
+                  type="button"
+                >
+                  <span>{template.scenario}</span>
+                  <strong>{template.name}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="builder-column">
+            <div className="section-title-inline">
+              <strong>可复用Skill</strong>
+              <span>{selectedSkillIds.length} 个已选择</span>
+            </div>
+            <div className="skill-selector">
+              {capabilities.skills.map((skill) => (
+                <button
+                  className={selectedSkillIds.includes(skill.id) ? 'skill-toggle selected' : 'skill-toggle'}
+                  key={skill.id}
+                  onClick={() => toggleSkill(skill.id)}
+                  type="button"
+                >
+                  <CheckCircle2 size={15} aria-hidden />
+                  <span>{skill.name}</span>
+                </button>
+              ))}
+            </div>
+            <button className="button primary full" disabled={composing || !selectedSkillIds.length} onClick={handleCompose} type="button">
+              {composing ? <Loader2 className="spin" size={17} aria-hidden /> : <Workflow size={17} aria-hidden />}
+              生成沙盒Agent
+            </button>
+          </div>
+
+          <div className="builder-column result-column">
+            {build ? (
+              <div className="compose-result">
+                <div>
+                  <span className="risk low">{build.status}</span>
+                  <h3>{build.template.name}</h3>
+                  <p>{build.template.outcome}</p>
+                </div>
+                <div className="workflow-list">
+                  {build.workflow.map((step) => (
+                    <div key={step.step}>
+                      <strong>{step.step} · {step.name}</strong>
+                      <span>{step.detail}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="endpoint-list">
+                  {Object.entries(build.endpoints).map(([name, endpoint]) => (
+                    <code key={name}>{name}: {endpoint}</code>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="empty-action builder-empty">
+                <span>选择模板和Skill后生成企业沙盒Agent。</span>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -526,8 +703,25 @@ function PlatformOSPage({ capabilities, overview }: { capabilities: CapabilityMo
   );
 }
 
-function CapturePage({ patient, running, onRunAnalysis }: { patient: Patient; running: boolean; onRunAnalysis: () => void }) {
+function CapturePage({
+  memory,
+  patient,
+  running,
+  onDeviceSync,
+  onRedeemCard,
+  onRunAnalysis
+}: {
+  memory: PatientMemory | null;
+  patient: Patient;
+  running: boolean;
+  onDeviceSync: () => Promise<DeviceEvent | null>;
+  onRedeemCard: () => Promise<ReportCard | null>;
+  onRunAnalysis: () => void;
+}) {
   const [captureProgress, setCaptureProgress] = useState(62);
+  const [cardResult, setCardResult] = useState<ReportCard | null>(null);
+  const [deviceEvent, setDeviceEvent] = useState<DeviceEvent | null>(null);
+  const [busyAction, setBusyAction] = useState<'card' | 'device' | null>(null);
 
   function startCapture() {
     setCaptureProgress(0);
@@ -540,6 +734,24 @@ function CapturePage({ patient, running, onRunAnalysis }: { patient: Patient; ru
         return Math.min(100, value + 8);
       });
     }, 220);
+  }
+
+  async function handleRedeemCard() {
+    setBusyAction('card');
+    try {
+      setCardResult(await onRedeemCard());
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleDeviceSync() {
+    setBusyAction('device');
+    try {
+      setDeviceEvent(await onDeviceSync());
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   return (
@@ -592,6 +804,63 @@ function CapturePage({ patient, running, onRunAnalysis }: { patient: Patient; ru
           <UploadItem title="体检报告OCR" status="LDL-C、HbA1c、hsCRP已解析" />
           <UploadItem title="基因PRS文件" status={`${patient.name} 的冠心病PRS可用`} />
           <UploadItem title="用药与病史" status={patient.conditions.join(' / ')} />
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={ClipboardCheck} title="体检报告解读卡" action={cardResult?.status ?? '线下获客入口'} />
+        <div className="activation-card">
+          <strong>{cardResult?.cardCode ?? `VITA-${patient.id.toUpperCase()}-2026`}</strong>
+          <span>{cardResult?.summary ?? '将实体卡/兑换码接入小程序，完成报告OCR、复测任务、家属摘要和MemOS写入。'}</span>
+          <button className="button primary full" disabled={busyAction === 'card' || running} onClick={handleRedeemCard} type="button">
+            {busyAction === 'card' ? <Loader2 className="spin" size={17} aria-hidden /> : <ClipboardCheck size={17} aria-hidden />}
+            兑换并生成任务
+          </button>
+        </div>
+        {cardResult && (
+          <ol className="action-list compact-list">
+            {cardResult.tasks.map((task) => (
+              <li key={task}>
+                <CheckCircle2 size={16} aria-hidden />
+                <span>{task}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={Watch} title="硬件数据网关" action={deviceEvent?.deviceType ?? '家庭血压计 / 手环'} />
+        <div className="device-sync-grid">
+          <VitalTile label="心率" value={deviceEvent?.readings.heartRate ?? patient.latest.heartRate} unit="bpm" />
+          <VitalTile
+            label="血压"
+            value={`${deviceEvent?.readings.systolic ?? patient.latest.systolic}/${deviceEvent?.readings.diastolic ?? patient.latest.diastolic}`}
+            unit="mmHg"
+          />
+        </div>
+        <button className="button primary full" disabled={busyAction === 'device' || running} onClick={handleDeviceSync} type="button">
+          {busyAction === 'device' ? <Loader2 className="spin" size={17} aria-hidden /> : <Watch size={17} aria-hidden />}
+          同步设备并写入记忆
+        </button>
+        {deviceEvent && (
+          <div className="tag-row action-tags">
+            {(deviceEvent.riskFlags.length ? deviceEvent.riskFlags : ['体征已写入长期趋势']).map((flag) => (
+              <small key={flag}>{flag}</small>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={DatabaseZap} title="Vitalife MemOS" action={memory?.summary.baselineRisk ? riskLabels[memory.summary.baselineRisk] : '长期健康轨迹'} />
+        <div className="memory-list">
+          {(memory?.events ?? []).slice(0, 4).map((event) => (
+            <div className="memory-item" key={event.id}>
+              <strong>{event.type} · {event.source}</strong>
+              <span>{event.summary}</span>
+            </div>
+          ))}
         </div>
       </section>
 

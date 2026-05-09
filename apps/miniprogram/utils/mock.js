@@ -272,11 +272,123 @@ function buildMockEmergency(patient) {
   };
 }
 
+function resolveMockSkill(skillIdOrName, index) {
+  const capabilities = mockCapabilities();
+  const skill = capabilities.skills.find((item) => item.id === skillIdOrName || item.name === skillIdOrName);
+  return (
+    skill || {
+      id: `template-skill-${index + 1}`,
+      name: skillIdOrName,
+      category: '模板内置',
+      description: `${skillIdOrName} 能力由模板运行时注入。`
+    }
+  );
+}
+
+function buildMockAgentBuild(templateId, skillIds, tenant = 'Vitalife Sandbox', channel = 'wechat_miniprogram') {
+  const capabilities = mockCapabilities();
+  const template = capabilities.agentTemplates.find((item) => item.id === templateId) || capabilities.agentTemplates[0];
+  const skills = (skillIds && skillIds.length ? skillIds : template.skills || []).map(resolveMockSkill);
+  return {
+    id: `mock-agent-build-${template.id}`,
+    tenant,
+    channel,
+    status: 'ready_for_sandbox',
+    createdAt: new Date().toISOString(),
+    template,
+    skills,
+    workflow: [
+      { step: '01', name: '租户与场景配置', detail: `加载 ${tenant} 的授权、服务包与渠道策略。` },
+      { step: '02', name: 'Skill装配', detail: `装配 ${skills.map((skill) => skill.name).join('、')}。` },
+      { step: '03', name: 'MIMO多模态接入', detail: '接入报告、体征、症状、长期记忆和设备流。' },
+      { step: '04', name: '证据研究链', detail: '生成可复核 RiskPrompt、证据摘要和医生复核要点。' },
+      { step: '05', name: '发布到沙盒', detail: '输出企业API、运营台工单和小程序任务入口。' }
+    ],
+    riskControls: ['非诊断性健康管理输出', '高风险结果进入医生复核队列', '用户授权与审计日志必填']
+  };
+}
+
+function buildMockReportCard(patient, cardCode = 'VITA-DEMO-2026') {
+  return {
+    id: `mock-report-card-${patient.id}`,
+    cardCode,
+    patientId: patient.id,
+    patientName: patient.name,
+    channel: 'wechat_miniprogram',
+    status: 'redeemed',
+    redeemedAt: new Date().toISOString(),
+    packageName: 'Vitalife 体检报告解读卡',
+    summary: `${patient.name} 已兑换报告解读卡，进入报告解读与复测任务闭环。`,
+    tasks: ['上传体检报告或拍照页', '确认OCR关键字段', '完成一次60秒PPG复测', '生成家属可读摘要']
+  };
+}
+
+function buildMockDeviceEvent(patient) {
+  const readings = {
+    heartRate: patient.latest.heartRate,
+    hrv: patient.latest.hrv,
+    spo2: patient.latest.spo2,
+    systolic: patient.latest.systolic,
+    diastolic: patient.latest.diastolic
+  };
+  return {
+    id: `mock-device-${patient.id}`,
+    patientId: patient.id,
+    patientName: patient.name,
+    deviceType: 'home_bp_monitor',
+    createdAt: new Date().toISOString(),
+    readings,
+    quality: { completeness: 0.94, signalToNoise: 0.91, motionArtifact: 0.06 },
+    riskFlags: readings.systolic >= 140 ? ['血压高于家庭监测阈值'] : ['体征已写入长期趋势'],
+    tasks: ['提醒用户静坐5分钟后复测', '同步照护者查看趋势']
+  };
+}
+
+function buildMockMemory(patient) {
+  return {
+    patientId: patient.id,
+    profile: {
+      patientName: patient.name,
+      riskTier: patient.riskTier,
+      caregiver: patient.caregiver,
+      baseline: patient.baseline,
+      latest: patient.latest
+    },
+    events: [
+      {
+        id: `mock-memory-profile-${patient.id}`,
+        patientId: patient.id,
+        type: 'baseline',
+        summary: `${patient.name} 基线包含 ${patient.conditions.join('、')}。`,
+        source: 'patient_profile',
+        createdAt: patient.latest.updatedAt
+      },
+      {
+        id: `mock-memory-trend-${patient.id}`,
+        patientId: patient.id,
+        type: 'trend',
+        summary: `最近7日趋势已进入个性化解释与复测提醒。`,
+        source: 'weekly_series',
+        createdAt: patient.latest.updatedAt
+      }
+    ],
+    summary: {
+      baselineRisk: patient.riskTier,
+      latestVitals: `${patient.latest.heartRate}bpm / ${patient.latest.systolic}/${patient.latest.diastolic}mmHg`,
+      continuity: '2 条长期记忆事件可用于个性化解释。'
+    }
+  };
+}
+
 module.exports = {
   patients,
   timeline,
+  buildMockAgentBuild,
   buildMockAnalysis,
+  buildMockDeviceEvent,
   buildMockEmergency,
+  buildMockMemory,
+  buildMockReportCard,
   getPatient,
   mockCapabilities,
   mockOverview

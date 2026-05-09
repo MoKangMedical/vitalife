@@ -82,6 +82,83 @@ async function fetchTimeline(patientId = currentPatientId()) {
   }
 }
 
+async function fetchPatientMemory(patientId = currentPatientId()) {
+  try {
+    const data = await request(`/api/patients/${patientId}/memory`);
+    return data.memory;
+  } catch (error) {
+    return mock.buildMockMemory(mock.getPatient(patientId));
+  }
+}
+
+async function composeAgent(templateId, skillIds, tenant = 'Vitalife Sandbox', channel = 'wechat_miniprogram') {
+  try {
+    const data = await request('/api/agent-os/compose', {
+      method: 'POST',
+      data: {
+        templateId,
+        skillIds,
+        tenant,
+        channel
+      }
+    });
+    app().globalData.lastAgentBuild = data.build;
+    return data.build;
+  } catch (error) {
+    const build = mock.buildMockAgentBuild(templateId, skillIds, tenant, channel);
+    app().globalData.lastAgentBuild = build;
+    return build;
+  }
+}
+
+async function redeemReportCard(patient) {
+  try {
+    const data = await request('/api/report-cards/redeem', {
+      method: 'POST',
+      data: {
+        patientId: patient.id,
+        cardCode: `VITA-${patient.id.toUpperCase()}-2026`,
+        channel: 'wechat_miniprogram'
+      }
+    });
+    app().globalData.lastReportCard = data.card;
+    return data.card;
+  } catch (error) {
+    const card = mock.buildMockReportCard(patient, `VITA-${patient.id.toUpperCase()}-2026`);
+    app().globalData.lastReportCard = card;
+    return card;
+  }
+}
+
+async function syncDevice(patient) {
+  const readings = {
+    heartRate: patient.latest.heartRate,
+    hrv: patient.latest.hrv,
+    spo2: patient.latest.spo2,
+    systolic: patient.latest.systolic,
+    diastolic: patient.latest.diastolic
+  };
+  try {
+    const data = await request('/api/devices/sync', {
+      method: 'POST',
+      data: {
+        patientId: patient.id,
+        deviceType: 'home_bp_monitor',
+        readings
+      }
+    });
+    app().globalData.lastDeviceEvent = data.event;
+    app().globalData.lastAnalysis = data.analysis;
+    return data;
+  } catch (error) {
+    const event = mock.buildMockDeviceEvent(patient);
+    const analysis = mock.buildMockAnalysis(patient);
+    app().globalData.lastDeviceEvent = event;
+    app().globalData.lastAnalysis = analysis;
+    return { event, analysis };
+  }
+}
+
 async function runAnalysis(patient) {
   const payload = {
     patientId: patient.id,
@@ -147,12 +224,16 @@ async function simulateEmergency(patient) {
 
 module.exports = {
   currentPatientId,
+  composeAgent,
   fetchCapabilities,
   fetchOverview,
   fetchPatient,
+  fetchPatientMemory,
   fetchPatients,
   fetchTimeline,
+  redeemReportCard,
   runAnalysis,
   setCurrentPatientId,
-  simulateEmergency
+  simulateEmergency,
+  syncDevice
 };

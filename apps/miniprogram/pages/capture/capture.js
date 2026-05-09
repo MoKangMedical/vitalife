@@ -12,6 +12,9 @@ Page({
       '端侧脱敏后仅上传特征向量'
     ],
     uploads: [],
+    reportCard: null,
+    deviceEvent: null,
+    memoryEvents: [],
     privacy: ['生物特征本地预处理', '证据摘要进入审计日志', '老人端、家属端、医生端权限隔离']
   },
 
@@ -28,8 +31,10 @@ Page({
   async loadPatient() {
     const detail = await api.fetchPatient();
     const patient = detail.patient;
+    const memory = await api.fetchPatientMemory(patient.id);
     this.setData({
       patient,
+      memoryEvents: memory.events.slice(0, 4),
       uploads: [
         { title: '体检报告OCR', desc: 'LDL-C、HbA1c、hs-CRP已解析' },
         { title: '基因PRS文件', desc: `${patient.name} 的冠心病PRS可用` },
@@ -61,5 +66,25 @@ Page({
     await api.runAnalysis(this.data.patient);
     wx.hideLoading();
     wx.switchTab({ url: '/pages/agents/agents' });
+  },
+
+  async redeemCard() {
+    if (!this.data.patient) return;
+    wx.showLoading({ title: '兑换报告卡' });
+    const reportCard = await api.redeemReportCard(this.data.patient);
+    const memory = await api.fetchPatientMemory(this.data.patient.id);
+    this.setData({ reportCard, memoryEvents: memory.events.slice(0, 4) });
+    wx.hideLoading();
+    wx.showToast({ title: '已生成任务', icon: 'success' });
+  },
+
+  async syncDevice() {
+    if (!this.data.patient) return;
+    wx.showLoading({ title: '同步设备' });
+    const data = await api.syncDevice(this.data.patient);
+    const memory = await api.fetchPatientMemory(this.data.patient.id);
+    this.setData({ deviceEvent: data.event, memoryEvents: memory.events.slice(0, 4) });
+    wx.hideLoading();
+    wx.showToast({ title: '已写入记忆', icon: 'success' });
   }
 });

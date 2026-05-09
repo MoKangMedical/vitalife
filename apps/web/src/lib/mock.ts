@@ -1,4 +1,16 @@
-import type { Analysis, CapabilityModel, EmergencyEvent, Overview, Patient, TimelinePoint } from './types';
+import type {
+  AgentBuild,
+  Analysis,
+  CapabilityModel,
+  DeviceEvent,
+  EmergencyEvent,
+  Overview,
+  Patient,
+  PatientMemory,
+  ReportCard,
+  SkillDefinition,
+  TimelinePoint
+} from './types';
 
 export const mockPatients: Patient[] = [
   {
@@ -175,6 +187,130 @@ export const mockTimeline: TimelinePoint[] = [
   { id: '5', day: '周六', timestamp: '2026-05-08T08:30:00+08:00', heartRate: 76, hrv: 35, risk: 39 },
   { id: '6', day: '周日', timestamp: '2026-05-09T08:30:00+08:00', heartRate: 86, hrv: 24, risk: 54 }
 ];
+
+function resolveMockSkill(skillIdOrName: string, index: number): SkillDefinition {
+  const skill = mockCapabilities.skills.find((item) => item.id === skillIdOrName || item.name === skillIdOrName);
+  return (
+    skill ?? {
+      id: `template-skill-${index + 1}`,
+      name: skillIdOrName,
+      category: '模板内置',
+      description: `${skillIdOrName} 能力由模板运行时注入。`,
+      inputs: ['租户配置', '用户授权', '场景策略'],
+      outputs: ['任务节点', '运营工单', '审计记录']
+    }
+  );
+}
+
+export function buildMockAgentBuild(templateId: string, skillIds: string[], tenant = 'Vitalife Sandbox', channel = 'web_console'): AgentBuild {
+  const template = mockCapabilities.agentTemplates.find((item) => item.id === templateId) ?? mockCapabilities.agentTemplates[0];
+  const skills = (skillIds.length ? skillIds : template.skills).map(resolveMockSkill);
+  return {
+    id: `mock-agent-build-${template.id}`,
+    tenant,
+    channel,
+    status: 'ready_for_sandbox',
+    createdAt: new Date().toISOString(),
+    template: {
+      id: template.id,
+      name: template.name,
+      scenario: template.scenario,
+      outcome: template.outcome
+    },
+    skills,
+    workflow: [
+      { step: '01', name: '租户与场景配置', detail: `加载 ${tenant} 的授权、服务包与渠道策略。` },
+      { step: '02', name: 'Skill装配', detail: `装配 ${skills.map((skill) => skill.name).join('、')}。` },
+      { step: '03', name: 'MIMO多模态接入', detail: '接入报告、体征、症状、长期记忆和设备流。' },
+      { step: '04', name: '证据研究链', detail: '生成可复核 RiskPrompt、证据摘要和医生复核要点。' },
+      { step: '05', name: '发布到沙盒', detail: '输出企业API、运营台工单和小程序任务入口。' }
+    ],
+    riskControls: ['非诊断性健康管理输出', '高风险结果进入医生复核队列', '用户授权与审计日志必填', '急性风险只触发提醒和转人工流程'],
+    endpoints: {
+      invocation: `/api/analysis/run?agentBuildId=mock-agent-build-${template.id}`,
+      memory: '/api/patients/:id/memory',
+      audit: `/api/agent-os/builds/mock-agent-build-${template.id}/audit`
+    }
+  };
+}
+
+export function buildMockReportCard(patient: Patient, cardCode = 'VITA-DEMO-2026', channel = 'wechat_miniprogram'): ReportCard {
+  return {
+    id: `mock-report-card-${patient.id}`,
+    cardCode,
+    patientId: patient.id,
+    patientName: patient.name,
+    channel,
+    status: 'redeemed',
+    redeemedAt: new Date().toISOString(),
+    packageName: 'Vitalife 体检报告解读卡',
+    summary: `${patient.name} 已兑换报告解读卡，系统将把体检OCR、基线体征和长期记忆合并生成健康摘要。`,
+    tasks: ['上传体检报告或拍照页', '确认OCR关键字段', '完成一次60秒PPG复测', '生成家属可读摘要', '写入Vitalife MemOS'],
+    outputs: ['结构化指标', '风险分层摘要', '复测任务', '医生复核要点']
+  };
+}
+
+export function buildMockDeviceEvent(patient: Patient): DeviceEvent {
+  const readings = {
+    heartRate: patient.latest.heartRate,
+    hrv: patient.latest.hrv,
+    spo2: patient.latest.spo2,
+    systolic: patient.latest.systolic,
+    diastolic: patient.latest.diastolic
+  };
+  const riskFlags = [
+    ...(readings.systolic >= 140 || readings.diastolic >= 90 ? ['血压高于家庭监测阈值'] : []),
+    ...(readings.hrv <= 24 ? ['HRV低于恢复基线'] : [])
+  ];
+
+  return {
+    id: `mock-device-${patient.id}`,
+    patientId: patient.id,
+    patientName: patient.name,
+    deviceType: 'home_bp_monitor',
+    createdAt: new Date().toISOString(),
+    readings,
+    quality: { completeness: 0.94, signalToNoise: 0.91, motionArtifact: 0.06 },
+    riskFlags,
+    tasks: riskFlags.length ? ['提醒用户静坐5分钟后复测', '同步照护者查看趋势', '必要时进入医生复核队列'] : ['写入长期体征趋势', '维持下次例行复测提醒']
+  };
+}
+
+export function buildMockMemory(patient: Patient): PatientMemory {
+  return {
+    patientId: patient.id,
+    profile: {
+      patientName: patient.name,
+      riskTier: patient.riskTier,
+      caregiver: patient.caregiver,
+      baseline: patient.baseline,
+      latest: patient.latest
+    },
+    events: [
+      {
+        id: `mock-memory-analysis-${patient.id}`,
+        patientId: patient.id,
+        type: 'analysis',
+        summary: patient.riskTier === 'high' ? '长期心血管风险偏高，需要持续复测与医生复核。' : '近期体征进入常规健康管理窗口。',
+        source: 'agent_fusion',
+        createdAt: patient.latest.updatedAt
+      },
+      {
+        id: `mock-memory-profile-${patient.id}`,
+        patientId: patient.id,
+        type: 'baseline',
+        summary: `${patient.name} 基线包含 ${patient.conditions.join('、')}。`,
+        source: 'patient_profile',
+        createdAt: patient.latest.updatedAt
+      }
+    ],
+    summary: {
+      baselineRisk: patient.riskTier,
+      latestVitals: `${patient.latest.heartRate}bpm / ${patient.latest.systolic}/${patient.latest.diastolic}mmHg / SpO2 ${patient.latest.spo2}%`,
+      continuity: '2 条长期记忆事件可用于个性化解释与复测提醒。'
+    }
+  };
+}
 
 export function buildMockAnalysis(patient: Patient): Analysis {
   const riskScore = patient.riskTier === 'high' ? 76 : patient.riskTier === 'medium' ? 54 : 24;

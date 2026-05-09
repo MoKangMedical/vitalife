@@ -97,6 +97,84 @@ export interface CapabilityModel {
   differentiators: Differentiator[];
 }
 
+export interface AgentBuild {
+  id: string;
+  tenant: string;
+  channel: string;
+  status: string;
+  createdAt: string;
+  template: {
+    id: string;
+    name: string;
+    scenario: string;
+    outcome: string;
+  };
+  skills: SkillDefinition[];
+  workflow: Array<{
+    step: string;
+    name: string;
+    detail: string;
+  }>;
+  riskControls: string[];
+  endpoints: Record<string, string>;
+}
+
+export interface ReportCard {
+  id: string;
+  cardCode: string;
+  patientId: string;
+  patientName: string;
+  channel: string;
+  status: string;
+  redeemedAt: string;
+  packageName: string;
+  summary: string;
+  tasks: string[];
+  outputs: string[];
+}
+
+export interface DeviceEvent {
+  id: string;
+  patientId: string;
+  patientName: string;
+  deviceType: string;
+  createdAt: string;
+  readings: Record<string, number>;
+  quality: {
+    completeness: number;
+    signalToNoise: number;
+    motionArtifact: number;
+  };
+  riskFlags: string[];
+  tasks: string[];
+}
+
+export interface MemoryEvent {
+  id: string;
+  patientId: string;
+  type: string;
+  summary: string;
+  source: string;
+  createdAt: string;
+}
+
+export interface PatientMemory {
+  patientId: string;
+  profile: {
+    patientName: string;
+    riskTier: RiskTier;
+    caregiver: string;
+    baseline: Patient['baseline'];
+    latest: Patient['latest'];
+  };
+  events: MemoryEvent[];
+  summary: {
+    baselineRisk: RiskTier;
+    latestVitals: string;
+    continuity: string;
+  };
+}
+
 export interface TimelinePoint {
   id: string;
   day: string;

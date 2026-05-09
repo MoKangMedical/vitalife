@@ -4,13 +4,21 @@ import { z } from 'zod';
 import { runAnalysis } from './agents/orchestrator.js';
 import { capabilityModel } from './data/capabilities.js';
 import {
+  addMemoryEvent,
   getAnalysis,
+  getMemory,
   getPatient,
   getTimeline,
+  listAgentBuilds,
+  listDeviceEvents,
   listEmergencies,
   listPatients,
+  listReportCards,
   saveAnalysis,
-  saveEmergency
+  saveAgentBuild,
+  saveDeviceEvent,
+  saveEmergency,
+  saveReportCard
 } from './data/store.js';
 
 const app = express();
@@ -18,6 +26,161 @@ const port = Number(process.env.VITALIFE_API_PORT || 8787);
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+const composeAgentSchema = z.object({
+  templateId: z.string(),
+  skillIds: z.array(z.string()).optional(),
+  tenant: z.string().optional(),
+  channel: z.string().optional()
+});
+
+const reportCardSchema = z.object({
+  patientId: z.string(),
+  cardCode: z.string().optional(),
+  channel: z.string().optional()
+});
+
+const deviceSyncSchema = z.object({
+  patientId: z.string(),
+  deviceType: z.string().optional(),
+  readings: z.record(z.string(), z.number()).optional()
+});
+
+const memoryEventSchema = z.object({
+  type: z.string().optional(),
+  summary: z.string().min(1),
+  source: z.string().optional()
+});
+
+function skillKey(value) {
+  return String(value || '').trim();
+}
+
+function resolveTemplate(templateId) {
+  return capabilityModel.agentTemplates.find((template) => template.id === templateId);
+}
+
+function resolveSkill(value, index = 0) {
+  const key = skillKey(value);
+  const skill = capabilityModel.skills.find((item) => item.id === key || item.name === key);
+  if (skill) return skill;
+  return {
+    id: `template-skill-${index + 1}`,
+    name: key,
+    category: '模板内置',
+    description: `${key} 能力由企业模板工作流在运行时注入，并进入审计链。`,
+    inputs: ['租户配置', '用户授权', '场景策略'],
+    outputs: ['任务节点', '运营工单', '审计记录']
+  };
+}
+
+function composeAgentBuild(payload) {
+  const template = resolveTemplate(payload.templateId);
+  if (!template) return null;
+
+  const selectedSkillKeys = payload.skillIds?.length ? payload.skillIds : template.skills;
+  const skills = selectedSkillKeys.map((key, index) => resolveSkill(key, index));
+  const tenant = payload.tenant?.trim() || 'Vitalife Sandbox';
+  const channel = payload.channel?.trim() || 'web_console';
+  const id = `agent-build-${Date.now()}`;
+
+  return {
+    id,
+    tenant,
+    channel,
+    status: 'ready_for_sandbox',
+    createdAt: new Date().toISOString(),
+    template: {
+      id: template.id,
+      name: template.name,
+      scenario: template.scenario,
+      outcome: template.outcome
+    },
+    skills,
+    workflow: [
+      { step: '01', name: '租户与场景配置', detail: `加载 ${tenant} 的授权、服务包与渠道策略。` },
+      { step: '02', name: 'Skill装配', detail: `装配 ${skills.map((skill) => skill.name).join('、')}。` },
+      { step: '03', name: 'MIMO多模态接入', detail: '接入报告、体征、症状、长期记忆和设备流。' },
+      { step: '04', name: '证据研究链', detail: '生成可复核 RiskPrompt、证据摘要和医生复核要点。' },
+      { step: '05', name: '发布到沙盒', detail: '输出企业API、运营台工单和小程序任务入口。' }
+    ],
+    riskControls: ['非诊断性健康管理输出', '高风险结果进入医生复核队列', '用户授权与审计日志必填', '急性风险只触发提醒和转人工流程'],
+    endpoints: {
+      invocation: `/api/analysis/run?agentBuildId=${id}`,
+      memory: '/api/patients/:id/memory',
+      audit: `/api/agent-os/builds/${id}/audit`
+    }
+  };
+}
+
+function redeemReportCard(patient, payload) {
+  const cardCode = payload.cardCode?.trim() || `VITA-${patient.id.toUpperCase()}-${Date.now().toString().slice(-4)}`;
+  const card = {
+    id: `report-card-${Date.now()}`,
+    cardCode,
+    patientId: patient.id,
+    patientName: patient.name,
+    channel: payload.channel?.trim() || 'wechat_miniprogram',
+    status: 'redeemed',
+    redeemedAt: new Date().toISOString(),
+    packageName: 'Vitalife 体检报告解读卡',
+    summary: `${patient.name} 已兑换报告解读卡，系统将把体检OCR、基线体征和长期记忆合并生成健康摘要。`,
+    tasks: ['上传体检报告或拍照页', '确认OCR关键字段', '完成一次60秒PPG复测', '生成家属可读摘要', '写入Vitalife MemOS'],
+    outputs: ['结构化指标', '风险分层摘要', '复测任务', '医生复核要点']
+  };
+
+  saveReportCard(card);
+  addMemoryEvent(patient.id, {
+    id: `memory-card-${card.id}`,
+    type: 'report_card',
+    summary: `报告卡 ${cardCode} 已兑换，进入报告解读与复测任务闭环。`,
+    source: 'report_card'
+  });
+  return card;
+}
+
+function syncDeviceEvent(patient, payload) {
+  const readings = {
+    heartRate: patient.latest.heartRate,
+    hrv: patient.latest.hrv,
+    spo2: patient.latest.spo2,
+    systolic: patient.latest.systolic,
+    diastolic: patient.latest.diastolic,
+    ...(payload.readings ?? {})
+  };
+  const riskFlags = [];
+  if (readings.systolic >= 140 || readings.diastolic >= 90) riskFlags.push('血压高于家庭监测阈值');
+  if (readings.heartRate >= 100) riskFlags.push('心率偏快');
+  if (readings.hrv <= 20) riskFlags.push('HRV低于恢复基线');
+  if (readings.spo2 < 95) riskFlags.push('血氧需复测');
+
+  const event = {
+    id: `device-${Date.now()}`,
+    patientId: patient.id,
+    patientName: patient.name,
+    deviceType: payload.deviceType?.trim() || 'home_bp_monitor',
+    createdAt: new Date().toISOString(),
+    readings,
+    quality: {
+      completeness: 0.94,
+      signalToNoise: readings.spo2 < 92 ? 0.82 : 0.91,
+      motionArtifact: 0.06
+    },
+    riskFlags,
+    tasks: riskFlags.length
+      ? ['提醒用户静坐5分钟后复测', '同步照护者查看趋势', '必要时进入医生复核队列']
+      : ['写入长期体征趋势', '维持下次例行复测提醒']
+  };
+
+  saveDeviceEvent(event);
+  addMemoryEvent(patient.id, {
+    id: `memory-device-${event.id}`,
+    type: 'device_sync',
+    summary: `${event.deviceType} 已同步：${readings.heartRate}bpm，${readings.systolic}/${readings.diastolic}mmHg，SpO2 ${readings.spo2}%。`,
+    source: 'device_gateway'
+  });
+  return event;
+}
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vitalife-api', timestamp: new Date().toISOString() });
@@ -29,7 +192,7 @@ app.get('/api/platform/overview', (_req, res) => {
     users: patients.length,
     highRisk: patients.filter((patient) => patient.riskTier === 'high').length,
     monitoredDevices: 18,
-    activeAgents: 9,
+    activeAgents: 9 + listAgentBuilds().length,
     reusableSkills: capabilityModel.skills.length,
     agentTemplates: capabilityModel.agentTemplates.length,
     emergencyEvents: listEmergencies().length,
@@ -39,6 +202,84 @@ app.get('/api/platform/overview', (_req, res) => {
 
 app.get('/api/platform/capabilities', (_req, res) => {
   res.json(capabilityModel);
+});
+
+app.get('/api/agent-os/skills', (_req, res) => {
+  res.json({ skills: capabilityModel.skills });
+});
+
+app.get('/api/agent-os/templates', (_req, res) => {
+  res.json({ templates: capabilityModel.agentTemplates });
+});
+
+app.get('/api/agent-os/builds', (_req, res) => {
+  res.json({ builds: listAgentBuilds() });
+});
+
+app.get('/api/agent-os/builds/:id/audit', (req, res) => {
+  const build = listAgentBuilds().find((item) => item.id === req.params.id);
+  if (!build) return res.status(404).json({ error: 'build_not_found' });
+  res.json({
+    audit: {
+      buildId: build.id,
+      status: build.status,
+      tenant: build.tenant,
+      createdAt: build.createdAt,
+      workflow: build.workflow,
+      riskControls: build.riskControls,
+      logs: build.workflow.map((step) => ({
+        step: step.step,
+        status: 'passed',
+        message: `${step.name} 已完成沙盒审计。`
+      }))
+    }
+  });
+});
+
+app.post('/api/agent-os/compose', (req, res) => {
+  const parsed = composeAgentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  const build = composeAgentBuild(parsed.data);
+  if (!build) return res.status(404).json({ error: 'template_not_found' });
+
+  res.json({ build: saveAgentBuild(build) });
+});
+
+app.get('/api/report-cards', (req, res) => {
+  res.json({ cards: listReportCards(req.query.patientId ? String(req.query.patientId) : undefined) });
+});
+
+app.post('/api/report-cards/redeem', (req, res) => {
+  const parsed = reportCardSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  const patient = getPatient(parsed.data.patientId);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+
+  res.json({ card: redeemReportCard(patient, parsed.data), memory: getMemory(patient.id) });
+});
+
+app.get('/api/devices/events', (req, res) => {
+  res.json({ events: listDeviceEvents(req.query.patientId ? String(req.query.patientId) : undefined) });
+});
+
+app.post('/api/devices/sync', (req, res) => {
+  const parsed = deviceSyncSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  const patient = getPatient(parsed.data.patientId);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+
+  const event = syncDeviceEvent(patient, parsed.data);
+  const analysis = saveAnalysis(
+    patient.id,
+    runAnalysis(patient, {
+      signal: event.readings,
+      quality: { signal: event.quality }
+    })
+  );
+  res.json({ event, analysis, memory: getMemory(patient.id) });
 });
 
 app.get('/api/patients', (_req, res) => {
@@ -55,6 +296,39 @@ app.get('/api/patients/:id/timeline', (req, res) => {
   const patient = getPatient(req.params.id);
   if (!patient) return res.status(404).json({ error: 'patient_not_found' });
   res.json({ series: getTimeline(patient.id) });
+});
+
+app.get('/api/patients/:id/memory', (req, res) => {
+  const memory = getMemory(req.params.id);
+  if (!memory) return res.status(404).json({ error: 'patient_not_found' });
+  res.json({ memory });
+});
+
+app.post('/api/patients/:id/memory', (req, res) => {
+  const patient = getPatient(req.params.id);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+
+  const parsed = memoryEventSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  const event = addMemoryEvent(patient.id, {
+    type: parsed.data.type ?? 'note',
+    summary: parsed.data.summary,
+    source: parsed.data.source ?? 'manual_note'
+  });
+  res.json({ event, memory: getMemory(patient.id) });
+});
+
+app.get('/api/patients/:id/report-cards', (req, res) => {
+  const patient = getPatient(req.params.id);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+  res.json({ cards: listReportCards(patient.id) });
+});
+
+app.get('/api/patients/:id/device-events', (req, res) => {
+  const patient = getPatient(req.params.id);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+  res.json({ events: listDeviceEvents(patient.id) });
 });
 
 const analysisSchema = z.object({

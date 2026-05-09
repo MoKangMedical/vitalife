@@ -7,6 +7,45 @@
 
   <view class="section card">
     <view class="section-title">
+      <text>Agent OS编排控制台</text>
+      <text>{{agentBuild ? agentBuild.status : '沙盒'}}</text>
+    </view>
+    <view class="template-choice">
+      <button
+        class="{{selectedTemplateId === item.id ? 'choice-card active' : 'choice-card'}}"
+        wx:for="{{templates}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="selectTemplate"
+      >
+        <text class="os-kicker">{{item.scenario}}</text>
+        <text class="choice-title">{{item.name}}</text>
+      </button>
+    </view>
+    <view class="skill-choice">
+      <button
+        class="{{selectedSkillIds.indexOf(item.id) >= 0 ? 'skill-pill active' : 'skill-pill'}}"
+        wx:for="{{skills}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="toggleSkill"
+      >
+        {{item.name}}
+      </button>
+    </view>
+    <button class="btn primary full" bindtap="composeAgent">{{composing ? '生成中' : '生成沙盒Agent'}}</button>
+    <view class="build-result" wx:if="{{agentBuild}}">
+      <text class="os-title">{{agentBuild.template.name}}</text>
+      <text class="list-desc">{{agentBuild.template.outcome}}</text>
+      <view class="build-step" wx:for="{{agentBuild.workflow}}" wx:key="step">
+        <text class="list-title">{{item.step}} · {{item.name}}</text>
+        <text class="list-desc">{{item.detail}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
       <text>三层产品架构</text>
       <text>自有体系</text>
     </view>

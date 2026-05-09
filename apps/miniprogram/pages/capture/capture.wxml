@@ -59,6 +59,63 @@
     </view>
   </view>
 
+  <view class="section card" wx:if="{{patient}}">
+    <view class="section-title">
+      <text>体检报告解读卡</text>
+      <text>{{reportCard ? reportCard.status : '兑换码'}}</text>
+    </view>
+    <view class="activation-card">
+      <text class="card-code">{{reportCard ? reportCard.cardCode : 'VITA-DEMO-2026'}}</text>
+      <text class="list-desc">{{reportCard ? reportCard.summary : '把线下报告卡接入小程序，完成OCR、复测任务、家属摘要和MemOS写入。'}}</text>
+      <button class="btn primary full" bindtap="redeemCard">兑换并生成任务</button>
+    </view>
+    <view class="list" wx:if="{{reportCard}}">
+      <view class="list-item" wx:for="{{reportCard.tasks}}" wx:key="*this">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card" wx:if="{{patient}}">
+    <view class="section-title">
+      <text>硬件数据网关</text>
+      <text>{{deviceEvent ? deviceEvent.deviceType : '家庭设备'}}</text>
+    </view>
+    <view class="metric-grid">
+      <view class="metric">
+        <text class="metric-label">心率</text>
+        <text class="metric-value">{{deviceEvent ? deviceEvent.readings.heartRate : patient.latest.heartRate}}<text class="metric-unit">bpm</text></text>
+      </view>
+      <view class="metric">
+        <text class="metric-label">血压</text>
+        <text class="metric-value">{{deviceEvent ? deviceEvent.readings.systolic : patient.latest.systolic}}/{{deviceEvent ? deviceEvent.readings.diastolic : patient.latest.diastolic}}</text>
+      </view>
+    </view>
+    <button class="btn primary full spaced" bindtap="syncDevice">同步设备并写入记忆</button>
+    <view class="tag-row" wx:if="{{deviceEvent}}">
+      <text wx:for="{{deviceEvent.riskFlags}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">
+      <text>Vitalife MemOS</text>
+      <text>长期轨迹</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{memoryEvents}}" wx:key="id">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item.type}} · {{item.source}}</text>
+          <text class="list-desc">{{item.summary}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <view class="section card">
     <view class="section-title">
       <text>隐私与合规</text>

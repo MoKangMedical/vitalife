@@ -50,6 +50,46 @@
   border-radius: 999rpx;
 }
 
+.activation-card {
+  display: grid;
+  gap: 16rpx;
+  padding: 20rpx;
+  background: #f8fbfa;
+  border: 1rpx solid #e2ebe8;
+  border-radius: 12rpx;
+}
+
+.card-code {
+  color: #173e3d;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.full {
+  width: 100%;
+}
+
+.spaced {
+  margin-top: 18rpx;
+}
+
+.tag-row {
+  display: flex;
+  gap: 10rpx;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.tag-row text {
+  min-height: 42rpx;
+  padding: 7rpx 12rpx;
+  color: #24403e;
+  background: #edf6f3;
+  border: 1rpx solid #d5e6e1;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
 @media (max-width: 360px) {
   .face-capture {
     display: block;

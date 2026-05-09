@@ -1,5 +1,16 @@
-import { buildMockAnalysis, buildMockEmergency, mockCapabilities, mockOverview, mockPatients, mockTimeline } from './mock';
-import type { Analysis, CapabilityModel, EmergencyEvent, Overview, Patient, TimelinePoint } from './types';
+import {
+  buildMockAgentBuild,
+  buildMockAnalysis,
+  buildMockDeviceEvent,
+  buildMockEmergency,
+  buildMockMemory,
+  buildMockReportCard,
+  mockCapabilities,
+  mockOverview,
+  mockPatients,
+  mockTimeline
+} from './mock';
+import type { AgentBuild, Analysis, CapabilityModel, DeviceEvent, EmergencyEvent, Overview, Patient, PatientMemory, ReportCard, TimelinePoint } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787';
 
@@ -63,6 +74,68 @@ export async function fetchTimeline(patientId: string): Promise<TimelinePoint[]>
     return data.series;
   } catch {
     return mockTimeline;
+  }
+}
+
+export async function fetchPatientMemory(patient: Patient): Promise<PatientMemory> {
+  try {
+    const data = await getJson<{ memory: PatientMemory }>(`/api/patients/${patient.id}/memory`);
+    return data.memory;
+  } catch {
+    return buildMockMemory(patient);
+  }
+}
+
+export async function composeAgent(
+  templateId: string,
+  skillIds: string[],
+  tenant = 'Vitalife Sandbox',
+  channel = 'web_console'
+): Promise<AgentBuild> {
+  try {
+    const data = await postJson<{ build: AgentBuild }>('/api/agent-os/compose', {
+      templateId,
+      skillIds,
+      tenant,
+      channel
+    });
+    return data.build;
+  } catch {
+    return buildMockAgentBuild(templateId, skillIds, tenant, channel);
+  }
+}
+
+export async function redeemReportCard(patient: Patient, cardCode = 'VITA-DEMO-2026', channel = 'wechat_miniprogram'): Promise<ReportCard> {
+  try {
+    const data = await postJson<{ card: ReportCard }>('/api/report-cards/redeem', {
+      patientId: patient.id,
+      cardCode,
+      channel
+    });
+    return data.card;
+  } catch {
+    return buildMockReportCard(patient, cardCode, channel);
+  }
+}
+
+export async function syncDevice(patient: Patient): Promise<{ event: DeviceEvent; analysis: Analysis }> {
+  const readings = {
+    heartRate: patient.latest.heartRate,
+    hrv: patient.latest.hrv,
+    spo2: patient.latest.spo2,
+    systolic: patient.latest.systolic,
+    diastolic: patient.latest.diastolic
+  };
+
+  try {
+    const data = await postJson<{ event: DeviceEvent; analysis: Analysis }>('/api/devices/sync', {
+      patientId: patient.id,
+      deviceType: 'home_bp_monitor',
+      readings
+    });
+    return data;
+  } catch {
+    return { event: buildMockDeviceEvent(patient), analysis: buildMockAnalysis(patient) };
   }
 }
 

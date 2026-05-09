@@ -93,6 +93,11 @@ async function runCaptureSmoke() {
   const page = loadPage('pages/capture/capture');
   await page.loadPatient.call(page);
   assert(page.data.uploads.length === 3, 'capture should prepare report/genomic upload rows');
+  await page.redeemCard.call(page);
+  assert(page.data.reportCard && page.data.reportCard.status === 'redeemed', 'capture should redeem a report card');
+  await page.syncDevice.call(page);
+  assert(page.data.deviceEvent && page.data.deviceEvent.deviceType, 'capture should sync a device event');
+  assert(page.data.memoryEvents.length >= 1, 'capture should show memory events');
   page.startCapture.call(page);
   await wait(3200);
   assert(page.data.progress === 100, 'capture progress should complete');
@@ -115,6 +120,8 @@ async function runOSSmoke() {
   assert(page.data.layers.length === 3, 'Agent OS should show three Vitalife layers');
   assert(page.data.skills.length >= 9, 'Agent OS should show reusable skills');
   assert(page.data.templates.length >= 5, 'Agent OS should show enterprise templates');
+  await page.composeAgent.call(page);
+  assert(page.data.agentBuild && page.data.agentBuild.status === 'ready_for_sandbox', 'Agent OS should compose a sandbox agent');
 }
 
 async function runReportSmoke() {
