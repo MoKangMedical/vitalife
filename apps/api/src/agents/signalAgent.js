@@ -1,15 +1,28 @@
+import { calculateHrvDeviation, classifyBloodPressure, triageVitalSigns } from '../medical/algorithms.js';
+
 export function runSignalAgent(patient, input = {}) {
   const latest = { ...patient.latest, ...input };
-  const hrvDrop = patient.baseline.hrv - latest.hrv;
-  const pressureScore = Math.min(1, Math.max(0, hrvDrop / 25 + (latest.heartRate - patient.baseline.restingHr) / 80));
-  const bloodPressureRisk = latest.systolic >= 140 || latest.diastolic >= 90 ? 0.78 : 0.24;
-  const emergencyScore =
-    latest.heartRate > 135 || latest.heartRate < 42 || latest.spo2 < 90 ? 0.82 : pressureScore > 0.7 ? 0.52 : 0.18;
+  const hrv = calculateHrvDeviation(latest.hrv, patient.baseline.hrv);
+  const bp = classifyBloodPressure(latest.systolic, latest.diastolic);
+  const triage = triageVitalSigns({ heartRate: latest.heartRate, spo2: latest.spo2 });
+  const pressureScore = hrv.status === 'computed' ? Math.min(1, Math.max(0, hrv.percentDrop / 45)) : 0;
+  const bloodPressureRisk =
+    bp.category === 'hypertensive_crisis_range'
+      ? 1
+      : bp.category === 'stage_2_hypertension'
+        ? 0.78
+        : bp.category === 'stage_1_hypertension'
+          ? 0.54
+          : bp.category === 'elevated'
+            ? 0.34
+            : 0.14;
+  const emergencyScore = triage.severity === 'urgent' ? 0.92 : triage.severity === 'watch' ? 0.52 : 0.12;
 
   return {
     agent: 'signals_expert_agent',
     status: 'completed',
     windowSeconds: 10,
+    algorithms: [hrv, bp, triage],
     evidence: [
       {
         id: 'signal-hrv-pressure',
@@ -18,31 +31,40 @@ export function runSignalAgent(patient, input = {}) {
         label: 'HRV自主神经压力',
         value: Number(pressureScore.toFixed(2)),
         unit: 'score',
-        direction: pressureScore > 0.55 ? 'risk_up' : 'neutral',
+        direction: hrv.category === 'large_drop' ? 'risk_up' : hrv.category === 'moderate_drop' ? 'watch' : 'neutral',
         confidence: 0.82,
-        explanation: `HRV当前${latest.hrv}ms，较基线下降${hrvDrop}ms。`
+        explanation:
+          hrv.status === 'computed'
+            ? `HRV当前${latest.hrv}ms，较个人基线下降${hrv.percentDrop}%。`
+            : 'HRV缺少可比较的个人基线。',
+        algorithm: hrv
       },
       {
         id: 'signal-bp',
         riskType: 'cardiometabolic',
         source: 'wearable_vitals',
-        label: '血压风险线索',
+        label: '血压分级',
         value: bloodPressureRisk,
         unit: 'score',
         direction: bloodPressureRisk > 0.6 ? 'risk_up' : 'neutral',
         confidence: 0.76,
-        explanation: `最近血压${latest.systolic}/${latest.diastolic}mmHg。`
+        explanation: `${bp.label}：${latest.systolic}/${latest.diastolic}mmHg。`,
+        algorithm: bp
       },
       {
         id: 'signal-emergency',
         riskType: 'acute_event',
         source: 'ecg_ppg_window',
-        label: '急性事件窗口评分',
+        label: '生命体征阈值分诊',
         value: Number(emergencyScore.toFixed(2)),
         unit: 'score',
         direction: emergencyScore > 0.75 ? 'urgent' : emergencyScore > 0.45 ? 'watch' : 'neutral',
         confidence: 0.8,
-        explanation: '基于心率、PPG脉搏波、血氧和HRV窗口计算急性预警评分。'
+        explanation:
+          triage.flags.length > 0
+            ? triage.flags.map((flag) => flag.label).join('；')
+            : '心率与血氧未触发预警阈值。',
+        algorithm: triage
       }
     ]
   };

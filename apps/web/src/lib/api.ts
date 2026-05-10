@@ -163,8 +163,14 @@ export async function runAnalysis(patient: Patient): Promise<Analysis> {
     },
     report: {
       ldl: patient.riskTier === 'high' ? 4.2 : patient.riskTier === 'medium' ? 3.4 : 2.7,
+      totalCholesterolMgDl: patient.riskTier === 'high' ? 238 : patient.riskTier === 'medium' ? 212 : 178,
+      hdlMgDl: patient.riskTier === 'high' ? 42 : patient.riskTier === 'medium' ? 48 : 58,
       glucose: patient.riskTier === 'high' ? 6.4 : 5.3,
-      crp: patient.riskTier === 'low' ? 1.2 : 2.8
+      hba1c: patient.riskTier === 'high' ? 6.2 : patient.riskTier === 'medium' ? 5.8 : 5.3,
+      crp: patient.riskTier === 'low' ? 1.2 : 2.8,
+      treatedBp: patient.conditions.some((condition) => condition.includes('高血压')),
+      smoker: false,
+      diabetes: patient.riskTier === 'high'
     },
     genomic: {
       prs: patient.riskTier === 'high' ? 0.82 : patient.riskTier === 'medium' ? 0.58 : 0.26

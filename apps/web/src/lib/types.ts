@@ -207,6 +207,7 @@ export interface Evidence {
   direction: 'urgent' | 'risk_up' | 'watch' | 'neutral';
   confidence: number;
   explanation: string;
+  algorithm?: unknown;
 }
 
 export interface AgentResult {
@@ -245,6 +246,15 @@ export interface Analysis {
       emergencyFlag: boolean;
       vascularAgeDelta: number;
       agingIndex: number;
+      clinicalRiskPercent?: number | null;
+      clinicalAlgorithms?: Array<{
+        algorithm: string;
+        status: string;
+        category: string | null;
+        value: number | null;
+        unit: string | null;
+        source: string;
+      }>;
       summary: string;
     };
     evidence: Evidence[];

@@ -1029,6 +1029,20 @@ function ReportsPage({
       </section>
 
       <section className="panel">
+        <PanelHeader icon={SearchCheck} title="医学算法依据" action="可审计" />
+        <div className="operation-list">
+          {(prompt?.clinicalAlgorithms ?? []).map((item) => (
+            <OperationItem
+              key={`${item.algorithm}-${item.category}`}
+              title={`${item.algorithm}${item.value != null ? ` · ${item.value}${item.unit ?? ''}` : ''}`}
+              detail={`${item.category ?? item.status} · ${item.source}`}
+            />
+          ))}
+          {!prompt?.clinicalAlgorithms?.length && <OperationItem title="等待算法结果" detail="运行智能体后展示PCE、血压分级、糖代谢与生命体征阈值。" />}
+        </div>
+      </section>
+
+      <section className="panel">
         <PanelHeader icon={FileText} title="报告操作" action="医生复核后发布" />
         <div className="operation-list">
           <OperationItem title="医生复核" detail="高风险与急性预警报告需人工确认" />

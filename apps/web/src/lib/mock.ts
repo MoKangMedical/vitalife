@@ -312,9 +312,74 @@ export function buildMockMemory(patient: Patient): PatientMemory {
   };
 }
 
+function demoPceRisk(patient: Patient) {
+  const isFemale = patient.sex === 'female';
+  const totalCholesterol = patient.riskTier === 'high' ? 238 : patient.riskTier === 'medium' ? 212 : 178;
+  const hdl = patient.riskTier === 'high' ? 42 : patient.riskTier === 'medium' ? 48 : 58;
+  const treatedBp = patient.conditions.some((condition) => condition.includes('高血压'));
+  const diabetes = patient.riskTier === 'high';
+  const smoker = false;
+  const model = isFemale
+    ? {
+        baseline: 0.9665,
+        mean: -29.18,
+        terms: {
+          lnAge: -29.799,
+          lnAgeSquared: 4.884,
+          lnTc: 13.54,
+          lnAgeLnTc: -3.114,
+          lnHdl: -13.578,
+          lnAgeLnHdl: 3.149,
+          lnTreatedSbp: 2.019,
+          lnUntreatedSbp: 1.957,
+          smoker: 7.574,
+          lnAgeSmoker: -1.665,
+          diabetes: 0.661
+        }
+      }
+    : {
+        baseline: 0.9144,
+        mean: 61.18,
+        terms: {
+          lnAge: 12.344,
+          lnTc: 11.853,
+          lnAgeLnTc: -2.664,
+          lnHdl: -7.99,
+          lnAgeLnHdl: 1.769,
+          lnTreatedSbp: 1.797,
+          lnUntreatedSbp: 1.764,
+          smoker: 7.837,
+          lnAgeSmoker: -1.795,
+          diabetes: 0.658
+        }
+      };
+  const lnAge = Math.log(patient.age);
+  const lnTc = Math.log(totalCholesterol);
+  const lnHdl = Math.log(hdl);
+  const lnSbp = Math.log(patient.latest.systolic);
+  let sum = 0;
+  sum += (model.terms.lnAge ?? 0) * lnAge;
+  sum += (model.terms.lnAgeSquared ?? 0) * lnAge * lnAge;
+  sum += (model.terms.lnTc ?? 0) * lnTc;
+  sum += (model.terms.lnAgeLnTc ?? 0) * lnAge * lnTc;
+  sum += (model.terms.lnHdl ?? 0) * lnHdl;
+  sum += (model.terms.lnAgeLnHdl ?? 0) * lnAge * lnHdl;
+  sum += (treatedBp ? model.terms.lnTreatedSbp : model.terms.lnUntreatedSbp) * lnSbp;
+  if (smoker) sum += model.terms.smoker + (model.terms.lnAgeSmoker ?? 0) * lnAge;
+  if (diabetes) sum += model.terms.diabetes;
+  const value = Math.round((1 - model.baseline ** Math.exp(sum - model.mean)) * 1000) / 10;
+  return {
+    value,
+    category: value >= 20 ? 'high' : value >= 7.5 ? 'intermediate' : value >= 5 ? 'borderline' : 'low',
+    inputs: { totalCholesterol, hdl, treatedBp, smoker, diabetes }
+  };
+}
+
 export function buildMockAnalysis(patient: Patient): Analysis {
-  const riskScore = patient.riskTier === 'high' ? 76 : patient.riskTier === 'medium' ? 54 : 24;
-  const riskLevel = patient.riskTier === 'high' ? 'high' : patient.riskTier;
+  const ascvd = demoPceRisk(patient);
+  const bpCategory = patient.latest.systolic >= 140 || patient.latest.diastolic >= 90 ? 'stage_2_hypertension' : patient.latest.systolic >= 130 || patient.latest.diastolic >= 80 ? 'stage_1_hypertension' : 'normal';
+  const riskScore = Math.min(96, Math.round(ascvd.value * 3.2 + (bpCategory === 'stage_2_hypertension' ? 14 : 4)));
+  const riskLevel = ascvd.category === 'high' ? 'high' : ascvd.category === 'intermediate' || ascvd.category === 'borderline' ? 'medium' : patient.riskTier === 'high' ? 'high' : patient.riskTier;
   return {
     id: `mock-analysis-${patient.id}`,
     patient,
@@ -352,19 +417,27 @@ export function buildMockAnalysis(patient: Patient): Analysis {
         ]
       },
       {
-        agent: 'signals_expert_agent',
+        agent: 'report_expert_agent',
         status: 'completed',
         evidence: [
           {
-            id: 'signal-hrv-pressure',
-            riskType: 'autonomic_pressure',
-            source: 'ppg_series',
-            label: 'HRV自主神经压力',
-            value: patient.latest.hrv,
-            unit: 'ms',
-            direction: patient.latest.hrv < patient.baseline.hrv ? 'risk_up' : 'neutral',
-            confidence: 0.82,
-            explanation: '当前HRV低于个人基线，需要结合睡眠和心率趋势复测。'
+            id: 'report-ascvd-pce',
+            riskType: 'cad',
+            source: 'pooled_cohort_equations',
+            label: '10年ASCVD风险',
+            value: ascvd.value,
+            unit: '%',
+            direction: ['intermediate', 'high'].includes(ascvd.category) ? 'risk_up' : ascvd.category === 'borderline' ? 'watch' : 'neutral',
+            confidence: 0.9,
+            explanation: `ACC/AHA PCE 10年ASCVD风险为${ascvd.value}%，分层为${ascvd.category}。`,
+            algorithm: {
+              algorithm: 'ACC/AHA Pooled Cohort Equations',
+              status: 'computed',
+              category: ascvd.category,
+              value: ascvd.value,
+              unit: '%',
+              source: '2013 ACC/AHA Guideline on the Assessment of Cardiovascular Risk'
+            }
           }
         ]
       }
@@ -380,17 +453,36 @@ export function buildMockAnalysis(patient: Patient): Analysis {
         emergencyFlag: false,
         vascularAgeDelta: Math.max(0, patient.baseline.vascularAge - patient.age),
         agingIndex: patient.baseline.faceAge - patient.age,
+        clinicalRiskPercent: ascvd.value,
+        clinicalAlgorithms: [
+          {
+            algorithm: 'ACC/AHA Pooled Cohort Equations',
+            status: 'computed',
+            category: ascvd.category,
+            value: ascvd.value,
+            unit: '%',
+            source: '2013 ACC/AHA Guideline on the Assessment of Cardiovascular Risk'
+          },
+          {
+            algorithm: 'ACC/AHA 2017 Blood Pressure Categories',
+            status: 'computed',
+            category: bpCategory,
+            value: null,
+            unit: null,
+            source: '2017 ACC/AHA High Blood Pressure Guideline'
+          }
+        ],
         summary:
-          patient.riskTier === 'high'
-            ? '长期心血管风险偏高，报告、信号和遗传证据存在同向支持。'
-            : patient.riskTier === 'medium'
-              ? '近期自主神经压力和血管代谢线索提示需要复测与生活方式干预。'
-              : '当前综合风险较低，建议维持周期性监测。'
+          riskLevel === 'high'
+            ? '公开风险方程与血压分级提示长期心血管风险偏高，需医生复核并完善报告证据。'
+            : riskLevel === 'medium'
+              ? '公开风险方程或血压分级提示需要复测与生活方式干预。'
+              : '当前公开风险方程分层较低，建议维持周期性监测。'
       },
       evidence: [],
       evidenceGraph: {
         nodes: [
-          { id: 'cad', label: '冠心病风险', score: patient.riskTier === 'high' ? 0.78 : 0.42 },
+          { id: 'cad', label: '冠心病风险', score: Math.min(1, ascvd.value / 20) },
           { id: 'acute', label: '急性事件', score: 0.18 },
           { id: 'aging', label: '血管老化', score: Math.max(0.1, patient.baseline.vascularAge - patient.age) },
           { id: 'metabolic', label: '代谢压力', score: patient.riskTier === 'low' ? 0.2 : 0.56 }
@@ -408,9 +500,9 @@ export function buildMockAnalysis(patient: Patient): Analysis {
     coach: {
       agent: 'user_interaction_agent',
       status: 'completed',
-      actionList: ['完成一次60秒掌腹PPG复测', '记录今日睡眠、运动和胸闷/心悸症状', '将最近体检报告补充到报告解析模块'],
+      actionList: ['完成一次60秒掌腹PPG复测', '补齐总胆固醇、HDL-C、LDL-C和血糖字段', '将ASCVD风险结果提交医生复核'],
       tone: 'coach',
-      message: '本周重点是复测PPG、改善睡眠恢复并补齐报告证据。'
+      message: '本周重点是用公开风险方程完成复核，并补齐报告证据。'
     }
   };
 }

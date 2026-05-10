@@ -157,9 +157,37 @@ function getPatient(patientId) {
   return patients.find((patient) => patient.id === patientId) || patients[0];
 }
 
+function estimatePceRisk(patient) {
+  const isFemale = patient.sex === 'female';
+  const totalCholesterol = patient.riskTier === 'high' ? 238 : patient.riskTier === 'medium' ? 212 : 178;
+  const hdl = patient.riskTier === 'high' ? 42 : patient.riskTier === 'medium' ? 48 : 58;
+  const treatedBp = patient.conditions.some((condition) => condition.indexOf('高血压') >= 0);
+  const diabetes = patient.riskTier === 'high';
+  const model = isFemale
+    ? { baseline: 0.9665, mean: -29.18, age: -29.799, age2: 4.884, tc: 13.54, ageTc: -3.114, hdl: -13.578, ageHdl: 3.149, treated: 2.019, untreated: 1.957, diabetes: 0.661 }
+    : { baseline: 0.9144, mean: 61.18, age: 12.344, age2: 0, tc: 11.853, ageTc: -2.664, hdl: -7.99, ageHdl: 1.769, treated: 1.797, untreated: 1.764, diabetes: 0.658 };
+  const lnAge = Math.log(patient.age);
+  const sum =
+    model.age * lnAge +
+    model.age2 * lnAge * lnAge +
+    model.tc * Math.log(totalCholesterol) +
+    model.ageTc * lnAge * Math.log(totalCholesterol) +
+    model.hdl * Math.log(hdl) +
+    model.ageHdl * lnAge * Math.log(hdl) +
+    (treatedBp ? model.treated : model.untreated) * Math.log(patient.latest.systolic) +
+    (diabetes ? model.diabetes : 0);
+  const value = Math.round((1 - Math.pow(model.baseline, Math.exp(sum - model.mean))) * 1000) / 10;
+  return {
+    value,
+    category: value >= 20 ? 'high' : value >= 7.5 ? 'intermediate' : value >= 5 ? 'borderline' : 'low'
+  };
+}
+
 function buildMockAnalysis(patient) {
-  const riskScore = patient.riskTier === 'high' ? 77 : patient.riskTier === 'medium' ? 54 : 24;
-  const riskLevel = patient.riskTier === 'high' ? 'high' : patient.riskTier;
+  const ascvd = estimatePceRisk(patient);
+  const bpCategory = patient.latest.systolic >= 140 || patient.latest.diastolic >= 90 ? 'stage_2_hypertension' : patient.latest.systolic >= 130 || patient.latest.diastolic >= 80 ? 'stage_1_hypertension' : 'normal';
+  const riskScore = Math.min(96, Math.round(ascvd.value * 3.2 + (bpCategory === 'stage_2_hypertension' ? 14 : 4)));
+  const riskLevel = ascvd.category === 'high' ? 'high' : ['intermediate', 'borderline'].includes(ascvd.category) ? 'medium' : patient.riskTier === 'high' ? 'high' : patient.riskTier;
   const vascularAgeDelta = Math.max(0, patient.baseline.vascularAge - patient.age);
 
   return {
@@ -196,16 +224,16 @@ function buildMockAnalysis(patient) {
         ]
       },
       {
-        agent: 'signals_expert_agent',
+        agent: 'report_expert_agent',
         status: 'completed',
         evidence: [
           {
-            id: 'signal-hrv-pressure',
-            label: 'HRV自主神经压力',
-            source: 'ppg_series',
-            direction: patient.latest.hrv < patient.baseline.hrv ? 'risk_up' : 'neutral',
-            confidence: 0.82,
-            explanation: `HRV当前${patient.latest.hrv}ms，低于个人基线。`
+            id: 'report-ascvd-pce',
+            label: '10年ASCVD风险',
+            source: 'pooled_cohort_equations',
+            direction: ['high', 'intermediate'].includes(ascvd.category) ? 'risk_up' : ascvd.category === 'borderline' ? 'watch' : 'neutral',
+            confidence: 0.9,
+            explanation: `ACC/AHA PCE 10年ASCVD风险为${ascvd.value}%，分层为${ascvd.category}。`
           }
         ]
       }
@@ -219,16 +247,21 @@ function buildMockAnalysis(patient) {
         emergencyFlag: false,
         vascularAgeDelta,
         agingIndex: patient.baseline.faceAge - patient.age,
+        clinicalRiskPercent: ascvd.value,
+        clinicalAlgorithms: [
+          { algorithm: 'ACC/AHA Pooled Cohort Equations', status: 'computed', category: ascvd.category, value: ascvd.value, unit: '%', source: '2013 ACC/AHA Guideline on the Assessment of Cardiovascular Risk' },
+          { algorithm: 'ACC/AHA 2017 Blood Pressure Categories', status: 'computed', category: bpCategory, value: null, unit: null, source: '2017 ACC/AHA High Blood Pressure Guideline' }
+        ],
         summary:
-          patient.riskTier === 'high'
-            ? '长期心血管风险偏高，报告、信号和遗传证据存在同向支持。'
-            : patient.riskTier === 'medium'
-              ? '近期自主神经压力和血管代谢线索提示需要复测与生活方式干预。'
-              : '当前综合风险较低，建议维持周期性监测。'
+          riskLevel === 'high'
+            ? '公开风险方程与血压分级提示长期心血管风险偏高，需医生复核。'
+            : riskLevel === 'medium'
+              ? '公开风险方程或血压分级提示需要复测与生活方式干预。'
+              : '当前公开风险方程分层较低，建议维持周期性监测。'
       },
       evidenceGraph: {
         nodes: [
-          { id: 'cad', label: '冠心病风险', score: patient.riskTier === 'high' ? 0.78 : 0.42 },
+          { id: 'cad', label: '冠心病风险', score: Math.min(1, ascvd.value / 20) },
           { id: 'acute', label: '急性事件', score: 0.18 },
           { id: 'aging', label: '血管老化', score: Math.min(1, vascularAgeDelta / 12) },
           { id: 'metabolic', label: '代谢压力', score: patient.riskTier === 'low' ? 0.2 : 0.56 }
