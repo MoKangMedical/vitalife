@@ -377,6 +377,140 @@ function buildMockDeviceEvent(patient) {
   };
 }
 
+function buildDemoWeRunSteps(patient) {
+  const base = Math.max(1200, patient.latest.steps || 4200);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (29 - index));
+    const wave = Math.round(Math.sin(index / 4) * 620);
+    const recovery = index > 22 ? Math.round((index - 22) * 95) : 0;
+    return {
+      timestamp: Math.round(date.getTime() / 1000),
+      step: Math.max(600, base - 760 + wave + recovery)
+    };
+  });
+}
+
+function averageSteps(items) {
+  if (!items.length) return 0;
+  return Math.round(items.reduce((sum, item) => sum + item.step, 0) / items.length);
+}
+
+function buildMockWeRunDeviceEvent(patient) {
+  const steps = buildDemoWeRunSteps(patient);
+  const latest = steps[steps.length - 1] || { step: patient.latest.steps, timestamp: Math.round(Date.now() / 1000) };
+  const recent7 = steps.slice(-7);
+  const previous7 = steps.slice(-14, -7);
+  const steps7dAvg = averageSteps(recent7);
+  const previousAvg = averageSteps(previous7);
+  const stepTrendPercent = previousAvg ? Math.round(((steps7dAvg - previousAvg) / previousAvg) * 100) : 0;
+  const readings = {
+    stepsToday: latest.step,
+    steps7dAvg,
+    steps30dAvg: averageSteps(steps),
+    activeDays7: recent7.filter((item) => item.step >= 5000).length,
+    lowActivityDays7: recent7.filter((item) => item.step < 3000).length,
+    stepTrendPercent
+  };
+  const riskFlags = [];
+  if (readings.steps7dAvg < 3000) riskFlags.push('近7日平均步数低于3000步');
+  if (stepTrendPercent <= -35) riskFlags.push('近7日步数较前一周明显下降');
+
+  return {
+    id: `mock-werun-${patient.id}`,
+    patientId: patient.id,
+    patientName: patient.name,
+    deviceType: 'wechat_werun',
+    createdAt: new Date().toISOString(),
+    readings,
+    quality: { completeness: 1, signalToNoise: 0.99, motionArtifact: 0 },
+    riskFlags,
+    tasks: riskFlags.length ? ['生成3日轻量步行任务', '结合血压和心率观察运动耐受'] : ['维持当前步行目标', '写入长期活动趋势'],
+    source: {
+      provider: 'wechat_werun',
+      authorization: 'scope.werun',
+      recordCount: steps.length,
+      latestAt: new Date(latest.timestamp * 1000).toISOString(),
+      ingestionMode: 'demo_step_info'
+    },
+    stepInfoList: steps
+  };
+}
+
+const healthKitPipeline = {
+  provider: 'huawei_health_kit',
+  channel: 'native_companion_app',
+  positioning: '华为手表作为增强数据源，经 Health Kit 授权后由独立 companion app 同步到 Vitalife。',
+  stages: [
+    { step: '01', name: '用户授权', detail: '申请运动、心率、睡眠、血氧、血压等最小必要范围。' },
+    { step: '02', name: '端侧采集', detail: '保留设备、时间戳、单位和质量字段。' },
+    { step: '03', name: 'Health Kit读取', detail: 'Companion App 按授权范围读取增量样本。' },
+    { step: '04', name: '标准化入库', detail: '映射为 Vitalife readings、质量向量和来源审计。' },
+    { step: '05', name: 'Agent融合', detail: '与微信运动、家庭设备、报告OCR、PPG和MemOS融合。' }
+  ],
+  supportedDataTypes: [
+    { type: 'steps', unit: 'count', vitalifeField: 'stepsToday' },
+    { type: 'heart_rate', unit: 'bpm', vitalifeField: 'heartRate' },
+    { type: 'hrv', unit: 'ms', vitalifeField: 'hrv' },
+    { type: 'spo2', unit: '%', vitalifeField: 'spo2' },
+    { type: 'blood_pressure_systolic', unit: 'mmHg', vitalifeField: 'systolic' },
+    { type: 'blood_pressure_diastolic', unit: 'mmHg', vitalifeField: 'diastolic' },
+    { type: 'sleep_score', unit: 'score', vitalifeField: 'sleepScore' }
+  ],
+  controls: ['用户授权可撤回', '只采集健康管理所需字段', '保留设备来源与时间戳', '医生端输出仅作健康管理和复核提示']
+};
+
+function buildDemoHealthKitSamples(patient) {
+  const now = Date.now();
+  const iso = (minutesAgo) => new Date(now - minutesAgo * 60 * 1000).toISOString();
+  return [
+    { type: 'steps', value: patient.latest.steps + 420, unit: 'count', startTime: iso(1440), endTime: iso(10), sourceDevice: 'HUAWEI WATCH' },
+    { type: 'heart_rate', value: patient.latest.heartRate, unit: 'bpm', startTime: iso(12), endTime: iso(10), sourceDevice: 'HUAWEI WATCH' },
+    { type: 'hrv', value: patient.latest.hrv, unit: 'ms', startTime: iso(30), endTime: iso(10), sourceDevice: 'HUAWEI WATCH' },
+    { type: 'spo2', value: patient.latest.spo2, unit: '%', startTime: iso(40), endTime: iso(12), sourceDevice: 'HUAWEI WATCH' },
+    { type: 'sleep_score', value: patient.latest.sleepScore, unit: 'score', startTime: iso(520), endTime: iso(120), sourceDevice: 'HUAWEI WATCH' },
+    { type: 'blood_pressure_systolic', value: patient.latest.systolic, unit: 'mmHg', startTime: iso(25), endTime: iso(24), sourceDevice: 'HUAWEI WATCH D' },
+    { type: 'blood_pressure_diastolic', value: patient.latest.diastolic, unit: 'mmHg', startTime: iso(25), endTime: iso(24), sourceDevice: 'HUAWEI WATCH D' }
+  ];
+}
+
+function buildMockHealthKitDeviceEvent(patient) {
+  const readings = {
+    stepsToday: patient.latest.steps + 420,
+    heartRate: patient.latest.heartRate,
+    hrv: patient.latest.hrv,
+    spo2: patient.latest.spo2,
+    sleepScore: patient.latest.sleepScore,
+    systolic: patient.latest.systolic,
+    diastolic: patient.latest.diastolic
+  };
+  const riskFlags = [];
+  if (readings.systolic >= 140 || readings.diastolic >= 90) riskFlags.push('Health Kit血压样本达到家庭监测高值');
+  if (readings.hrv <= 20) riskFlags.push('Health Kit HRV低于恢复基线');
+  return {
+    id: `mock-healthkit-${patient.id}`,
+    patientId: patient.id,
+    patientName: patient.name,
+    deviceType: 'huawei_health_kit',
+    createdAt: new Date().toISOString(),
+    readings,
+    quality: { completeness: 0.7, signalToNoise: 0.92, motionArtifact: 0.04 },
+    riskFlags,
+    tasks: riskFlags.length ? ['将华为手表异常窗口写入医生复核队列', '提醒用户完成一次静息复测'] : ['纳入增强数据源趋势', '维持每周运动和睡眠复盘'],
+    source: {
+      provider: 'huawei_health_kit',
+      channel: 'native_companion_app',
+      recordCount: 7,
+      latestAt: new Date().toISOString(),
+      sourceDevices: ['HUAWEI WATCH', 'HUAWEI WATCH D'],
+      scopes: ['healthkit.activity', 'healthkit.heart', 'healthkit.sleep']
+    },
+    pipeline: healthKitPipeline.stages
+  };
+}
+
 function buildMockMemory(patient) {
   return {
     patientId: patient.id,
@@ -420,9 +554,14 @@ module.exports = {
   buildMockAnalysis,
   buildMockDeviceEvent,
   buildMockEmergency,
+  buildMockHealthKitDeviceEvent,
   buildMockMemory,
   buildMockReportCard,
+  buildMockWeRunDeviceEvent,
+  buildDemoHealthKitSamples,
+  buildDemoWeRunSteps,
   getPatient,
+  healthKitPipeline,
   mockCapabilities,
   mockOverview
 };

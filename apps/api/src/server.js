@@ -20,6 +20,8 @@ import {
   saveEmergency,
   saveReportCard
 } from './data/store.js';
+import { createHealthKitDeviceEvent, healthKitPipeline } from './integrations/healthKit.js';
+import { createWechatSession, createWeRunDeviceEvent, decryptWeRunPayload } from './integrations/wechat.js';
 
 const app = express();
 const port = Number(process.env.VITALIFE_API_PORT || 8787);
@@ -44,6 +46,54 @@ const deviceSyncSchema = z.object({
   patientId: z.string(),
   deviceType: z.string().optional(),
   readings: z.record(z.string(), z.number()).optional()
+});
+
+const wechatSessionSchema = z.object({
+  code: z.string().min(1)
+});
+
+const weRunStepSchema = z.object({
+  timestamp: z.number(),
+  step: z.number()
+});
+
+const weRunSyncSchema = z
+  .object({
+    patientId: z.string(),
+    sessionId: z.string().optional(),
+    encryptedData: z.string().optional(),
+    iv: z.string().optional(),
+    stepInfoList: z.array(weRunStepSchema).optional()
+  })
+  .superRefine((payload, context) => {
+    if (payload.stepInfoList?.length) return;
+    if (payload.sessionId && payload.encryptedData && payload.iv) return;
+    context.addIssue({
+      code: 'custom',
+      message: '需要提供 stepInfoList，或提供 sessionId + encryptedData + iv 由服务端解密。'
+    });
+  });
+
+const healthKitSampleSchema = z.object({
+  type: z.string().min(1),
+  value: z.number(),
+  unit: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  sourceDevice: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+const healthKitSyncSchema = z.object({
+  patientId: z.string(),
+  authorization: z
+    .object({
+      providerUserId: z.string().optional(),
+      scopes: z.array(z.string()).optional(),
+      consentAt: z.string().optional()
+    })
+    .optional(),
+  samples: z.array(healthKitSampleSchema).min(1)
 });
 
 const memoryEventSchema = z.object({
@@ -182,6 +232,42 @@ function syncDeviceEvent(patient, payload) {
   return event;
 }
 
+function syncWeRunEvent(patient, payload) {
+  let stepInfoList = payload.stepInfoList;
+  let metadata = { ingestionMode: stepInfoList?.length ? 'plain_step_info' : 'server_decrypted' };
+
+  if (!stepInfoList?.length) {
+    const decrypted = decryptWeRunPayload(payload);
+    stepInfoList = decrypted.payload.stepInfoList;
+    metadata = {
+      ingestionMode: 'server_decrypted',
+      openIdMasked: decrypted.session.openIdMasked
+    };
+  }
+
+  const event = createWeRunDeviceEvent(patient, stepInfoList, metadata);
+  saveDeviceEvent(event);
+  addMemoryEvent(patient.id, {
+    id: `memory-werun-${event.id}`,
+    type: 'activity_sync',
+    summary: `微信运动已同步：今日 ${event.readings.stepsToday} 步，7日均值 ${event.readings.steps7dAvg} 步，活动天数 ${event.readings.activeDays7}/7。`,
+    source: 'wechat_werun'
+  });
+  return event;
+}
+
+function syncHealthKitEvent(patient, payload) {
+  const event = createHealthKitDeviceEvent(patient, payload);
+  saveDeviceEvent(event);
+  addMemoryEvent(patient.id, {
+    id: `memory-healthkit-${event.id}`,
+    type: 'enhanced_device_sync',
+    summary: `华为 Health Kit 增强数据已入库：${Object.keys(event.readings).join('、')}，样本数 ${event.source.recordCount}。`,
+    source: 'huawei_health_kit'
+  });
+  return event;
+}
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vitalife-api', timestamp: new Date().toISOString() });
 });
@@ -260,6 +346,21 @@ app.post('/api/report-cards/redeem', (req, res) => {
   res.json({ card: redeemReportCard(patient, parsed.data), memory: getMemory(patient.id) });
 });
 
+app.post('/api/integrations/wechat/session', async (req, res) => {
+  const parsed = wechatSessionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  try {
+    const result = await createWechatSession(parsed.data.code);
+    if (!result.configured) {
+      return res.status(503).json({ error: result.error, message: result.message });
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(502).json({ error: 'wechat_code2session_failed', message: error.message });
+  }
+});
+
 app.get('/api/devices/events', (req, res) => {
   res.json({ events: listDeviceEvents(req.query.patientId ? String(req.query.patientId) : undefined) });
 });
@@ -280,6 +381,61 @@ app.post('/api/devices/sync', (req, res) => {
     })
   );
   res.json({ event, analysis, memory: getMemory(patient.id) });
+});
+
+app.post('/api/devices/wechat-werun/sync', (req, res) => {
+  const parsed = weRunSyncSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  const patient = getPatient(parsed.data.patientId);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+
+  try {
+    const event = syncWeRunEvent(patient, parsed.data);
+    const analysis = saveAnalysis(
+      patient.id,
+      runAnalysis(patient, {
+        signal: {
+          ...patient.latest,
+          steps: event.readings.stepsToday,
+          steps7dAvg: event.readings.steps7dAvg
+        },
+        quality: { signal: event.quality }
+      })
+    );
+    res.json({ event, analysis, memory: getMemory(patient.id) });
+  } catch (error) {
+    res.status(400).json({ error: 'wechat_werun_sync_failed', message: error.message });
+  }
+});
+
+app.get('/api/integrations/health-kit/pipeline', (_req, res) => {
+  res.json({ pipeline: healthKitPipeline });
+});
+
+app.post('/api/devices/huawei-health/sync', (req, res) => {
+  const parsed = healthKitSyncSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+  const patient = getPatient(parsed.data.patientId);
+  if (!patient) return res.status(404).json({ error: 'patient_not_found' });
+
+  try {
+    const event = syncHealthKitEvent(patient, parsed.data);
+    const analysis = saveAnalysis(
+      patient.id,
+      runAnalysis(patient, {
+        signal: {
+          ...patient.latest,
+          ...event.readings
+        },
+        quality: { signal: event.quality }
+      })
+    );
+    res.json({ event, analysis, memory: getMemory(patient.id), pipeline: healthKitPipeline });
+  } catch (error) {
+    res.status(400).json({ error: 'huawei_health_sync_failed', message: error.message });
+  }
 });
 
 app.get('/api/patients', (_req, res) => {

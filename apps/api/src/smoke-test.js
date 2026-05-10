@@ -1,5 +1,7 @@
 import { runAnalysis } from './agents/orchestrator.js';
 import { listPatients } from './data/store.js';
+import { createHealthKitDeviceEvent, demoHealthKitSamples } from './integrations/healthKit.js';
+import { createWeRunDeviceEvent, demoWeRunStepInfo } from './integrations/wechat.js';
 import { calculatePooledCohortAscvdRisk, classifyBloodPressure, classifyFastingGlucose } from './medical/algorithms.js';
 
 const patient = listPatients()[0];
@@ -45,6 +47,19 @@ if (classifyBloodPressure(142, 92).category !== 'stage_2_hypertension') {
 
 if (classifyFastingGlucose({ glucoseMmolL: 6.1 }).category !== 'prediabetes_range') {
   throw new Error('Glucose classification failed');
+}
+
+const weRunEvent = createWeRunDeviceEvent(patient, demoWeRunStepInfo(patient), { ingestionMode: 'smoke_test' });
+if (weRunEvent.deviceType !== 'wechat_werun' || !weRunEvent.readings.steps7dAvg) {
+  throw new Error('WeRun activity event was not normalized');
+}
+
+const healthKitEvent = createHealthKitDeviceEvent(patient, {
+  authorization: { scopes: ['healthkit.activity', 'healthkit.heart'], consentAt: new Date().toISOString() },
+  samples: demoHealthKitSamples(patient)
+});
+if (healthKitEvent.deviceType !== 'huawei_health_kit' || !healthKitEvent.readings.heartRate) {
+  throw new Error('Huawei Health Kit event was not normalized');
 }
 
 console.log('Vitalife API smoke test passed');

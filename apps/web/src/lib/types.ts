@@ -147,6 +147,42 @@ export interface DeviceEvent {
   };
   riskFlags: string[];
   tasks: string[];
+  source?: {
+    provider: string;
+    channel?: string;
+    authorization?: string;
+    recordCount?: number;
+    latestAt?: string;
+    sourceDevices?: string[];
+    openIdMasked?: string | null;
+    ingestionMode?: string;
+    consentAt?: string | null;
+    scopes?: string[];
+  };
+  stepInfoList?: Array<{
+    timestamp: number;
+    step: number;
+  }>;
+  pipeline?: HealthKitPipelineStage[];
+}
+
+export interface HealthKitPipelineStage {
+  step: string;
+  name: string;
+  detail: string;
+}
+
+export interface HealthKitPipeline {
+  provider: string;
+  channel: string;
+  positioning: string;
+  stages: HealthKitPipelineStage[];
+  supportedDataTypes: Array<{
+    type: string;
+    unit: string;
+    vitalifeField: string;
+  }>;
+  controls: string[];
 }
 
 export interface MemoryEvent {

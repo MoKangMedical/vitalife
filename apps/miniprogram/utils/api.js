@@ -35,6 +35,38 @@ function setCurrentPatientId(patientId) {
   app().globalData.selectedPatientId = patientId;
 }
 
+function wxLogin() {
+  return new Promise((resolve, reject) => {
+    if (!wx.login) {
+      reject(new Error('wx.login unavailable'));
+      return;
+    }
+    wx.login({
+      success(result) {
+        if (result.code) {
+          resolve(result);
+          return;
+        }
+        reject(new Error('wx.login missing code'));
+      },
+      fail: reject
+    });
+  });
+}
+
+function wxGetWeRunData() {
+  return new Promise((resolve, reject) => {
+    if (!wx.getWeRunData) {
+      reject(new Error('wx.getWeRunData unavailable'));
+      return;
+    }
+    wx.getWeRunData({
+      success: resolve,
+      fail: reject
+    });
+  });
+}
+
 async function fetchOverview() {
   try {
     return await request('/api/platform/overview');
@@ -159,6 +191,72 @@ async function syncDevice(patient) {
   }
 }
 
+async function syncWeRun(patient) {
+  try {
+    const loginResult = await wxLogin();
+    const sessionData = await request('/api/integrations/wechat/session', {
+      method: 'POST',
+      data: {
+        code: loginResult.code
+      }
+    });
+    const runData = await wxGetWeRunData();
+    const data = await request('/api/devices/wechat-werun/sync', {
+      method: 'POST',
+      data: {
+        patientId: patient.id,
+        sessionId: sessionData.session.id,
+        encryptedData: runData.encryptedData,
+        iv: runData.iv
+      }
+    });
+    app().globalData.lastWeRunEvent = data.event;
+    app().globalData.lastAnalysis = data.analysis;
+    return data;
+  } catch (error) {
+    const event = mock.buildMockWeRunDeviceEvent(patient);
+    const analysis = mock.buildMockAnalysis(patient);
+    app().globalData.lastWeRunEvent = event;
+    app().globalData.lastAnalysis = analysis;
+    return { event, analysis };
+  }
+}
+
+async function fetchHealthKitPipeline() {
+  try {
+    const data = await request('/api/integrations/health-kit/pipeline');
+    return data.pipeline;
+  } catch (error) {
+    return mock.healthKitPipeline;
+  }
+}
+
+async function syncHealthKitDemo(patient) {
+  try {
+    const data = await request('/api/devices/huawei-health/sync', {
+      method: 'POST',
+      data: {
+        patientId: patient.id,
+        authorization: {
+          providerUserId: `huawei-demo-${patient.id}`,
+          scopes: ['healthkit.activity', 'healthkit.heart', 'healthkit.sleep', 'healthkit.oxygen_saturation', 'healthkit.blood_pressure'],
+          consentAt: new Date().toISOString()
+        },
+        samples: mock.buildDemoHealthKitSamples(patient)
+      }
+    });
+    app().globalData.lastHealthKitEvent = data.event;
+    app().globalData.lastAnalysis = data.analysis;
+    return data;
+  } catch (error) {
+    const event = mock.buildMockHealthKitDeviceEvent(patient);
+    const analysis = mock.buildMockAnalysis(patient);
+    app().globalData.lastHealthKitEvent = event;
+    app().globalData.lastAnalysis = analysis;
+    return { event, analysis, pipeline: mock.healthKitPipeline };
+  }
+}
+
 async function runAnalysis(patient) {
   const payload = {
     patientId: patient.id,
@@ -233,6 +331,7 @@ module.exports = {
   composeAgent,
   fetchCapabilities,
   fetchOverview,
+  fetchHealthKitPipeline,
   fetchPatient,
   fetchPatientMemory,
   fetchPatients,
@@ -241,5 +340,7 @@ module.exports = {
   runAnalysis,
   setCurrentPatientId,
   simulateEmergency,
-  syncDevice
+  syncDevice,
+  syncHealthKitDemo,
+  syncWeRun
 };

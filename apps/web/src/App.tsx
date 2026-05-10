@@ -35,11 +35,14 @@ import {
   fetchPatient,
   fetchPatientMemory,
   fetchPatients,
+  fetchHealthKitPipeline,
   fetchTimeline,
   redeemReportCard,
   runAnalysis,
   simulateEmergency,
-  syncDevice
+  syncDevice,
+  syncHealthKitDemo,
+  syncWeRunSteps
 } from './lib/api';
 import type {
   AgentBuild,
@@ -47,6 +50,7 @@ import type {
   CapabilityModel,
   DeviceEvent,
   EmergencyEvent,
+  HealthKitPipeline,
   Overview,
   Patient,
   PatientMemory,
@@ -236,6 +240,32 @@ export default function App() {
     }
   }
 
+  async function handleWeRunSync() {
+    if (!selectedPatient) return null;
+    setRunning(true);
+    try {
+      const result = await syncWeRunSteps(selectedPatient);
+      setAnalysis(result.analysis);
+      setMemory(await fetchPatientMemory(selectedPatient));
+      return result.event;
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function handleHealthKitSync() {
+    if (!selectedPatient) return null;
+    setRunning(true);
+    try {
+      const result = await syncHealthKitDemo(selectedPatient);
+      setAnalysis(result.analysis);
+      setMemory(await fetchPatientMemory(selectedPatient));
+      return result.event;
+    } finally {
+      setRunning(false);
+    }
+  }
+
   const content = (() => {
     if (!selectedPatient || !overview) return <LoadingState />;
     switch (activeView) {
@@ -262,8 +292,10 @@ export default function App() {
             patient={selectedPatient}
             running={running}
             onDeviceSync={handleDeviceSync}
+            onHealthKitSync={handleHealthKitSync}
             onRedeemCard={handleRedeemReportCard}
             onRunAnalysis={handleRunAnalysis}
+            onWeRunSync={handleWeRunSync}
           />
         );
       case 'agents':
@@ -708,20 +740,31 @@ function CapturePage({
   patient,
   running,
   onDeviceSync,
+  onHealthKitSync,
   onRedeemCard,
-  onRunAnalysis
+  onRunAnalysis,
+  onWeRunSync
 }: {
   memory: PatientMemory | null;
   patient: Patient;
   running: boolean;
   onDeviceSync: () => Promise<DeviceEvent | null>;
+  onHealthKitSync: () => Promise<DeviceEvent | null>;
   onRedeemCard: () => Promise<ReportCard | null>;
   onRunAnalysis: () => void;
+  onWeRunSync: () => Promise<DeviceEvent | null>;
 }) {
   const [captureProgress, setCaptureProgress] = useState(62);
   const [cardResult, setCardResult] = useState<ReportCard | null>(null);
   const [deviceEvent, setDeviceEvent] = useState<DeviceEvent | null>(null);
-  const [busyAction, setBusyAction] = useState<'card' | 'device' | null>(null);
+  const [weRunEvent, setWeRunEvent] = useState<DeviceEvent | null>(null);
+  const [healthKitEvent, setHealthKitEvent] = useState<DeviceEvent | null>(null);
+  const [healthKitPipeline, setHealthKitPipeline] = useState<HealthKitPipeline | null>(null);
+  const [busyAction, setBusyAction] = useState<'card' | 'device' | 'werun' | 'healthkit' | null>(null);
+
+  useEffect(() => {
+    void fetchHealthKitPipeline().then(setHealthKitPipeline);
+  }, []);
 
   function startCapture() {
     setCaptureProgress(0);
@@ -749,6 +792,24 @@ function CapturePage({
     setBusyAction('device');
     try {
       setDeviceEvent(await onDeviceSync());
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleWeRunSync() {
+    setBusyAction('werun');
+    try {
+      setWeRunEvent(await onWeRunSync());
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleHealthKitSync() {
+    setBusyAction('healthkit');
+    try {
+      setHealthKitEvent(await onHealthKitSync());
     } finally {
       setBusyAction(null);
     }
@@ -830,6 +891,25 @@ function CapturePage({
       </section>
 
       <section className="panel">
+        <PanelHeader icon={Activity} title="微信运动" action={weRunEvent ? 'scope.werun已同步' : '小程序首选入口'} />
+        <div className="device-sync-grid">
+          <VitalTile label="今日步数" value={weRunEvent?.readings.stepsToday ?? patient.latest.steps} unit="步" />
+          <VitalTile label="7日均值" value={weRunEvent?.readings.steps7dAvg ?? patient.latest.steps} unit="步/日" />
+          <VitalTile label="活跃天数" value={weRunEvent?.readings.activeDays7 ?? '-'} unit="/7日" />
+          <VitalTile label="趋势变化" value={weRunEvent ? `${weRunEvent.readings.stepTrendPercent}%` : '-'} unit="近7日" />
+        </div>
+        <button className="button primary full" disabled={busyAction === 'werun' || running} onClick={handleWeRunSync} type="button">
+          {busyAction === 'werun' ? <Loader2 className="spin" size={17} aria-hidden /> : <Activity size={17} aria-hidden />}
+          授权同步微信运动
+        </button>
+        <div className="tag-row action-tags">
+          {(weRunEvent?.riskFlags.length ? weRunEvent.riskFlags : ['活动趋势已进入MemOS与复测任务']).map((flag) => (
+            <small key={flag}>{flag}</small>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
         <PanelHeader icon={Watch} title="硬件数据网关" action={deviceEvent?.deviceType ?? '家庭血压计 / 手环'} />
         <div className="device-sync-grid">
           <VitalTile label="心率" value={deviceEvent?.readings.heartRate ?? patient.latest.heartRate} unit="bpm" />
@@ -846,6 +926,31 @@ function CapturePage({
         {deviceEvent && (
           <div className="tag-row action-tags">
             {(deviceEvent.riskFlags.length ? deviceEvent.riskFlags : ['体征已写入长期趋势']).map((flag) => (
+              <small key={flag}>{flag}</small>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={MonitorSmartphone} title="华为 Health Kit增强管线" action={healthKitEvent ? '增强数据已入库' : '独立Companion App'} />
+        <ol className="action-list compact-list">
+          {(healthKitPipeline?.stages ?? []).slice(0, 5).map((stage) => (
+            <li key={stage.step}>
+              <CheckCircle2 size={16} aria-hidden />
+              <span>
+                <strong>{stage.name}</strong>：{stage.detail}
+              </span>
+            </li>
+          ))}
+        </ol>
+        <button className="button ghost full" disabled={busyAction === 'healthkit' || running} onClick={handleHealthKitSync} type="button">
+          {busyAction === 'healthkit' ? <Loader2 className="spin" size={17} aria-hidden /> : <MonitorSmartphone size={17} aria-hidden />}
+          模拟Health Kit样本入库
+        </button>
+        {healthKitEvent && (
+          <div className="tag-row action-tags">
+            {(healthKitEvent.riskFlags.length ? healthKitEvent.riskFlags : ['华为手表增强样本已进入融合分析']).map((flag) => (
               <small key={flag}>{flag}</small>
             ))}
           </div>

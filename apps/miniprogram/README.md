@@ -29,11 +29,27 @@ npm run dev
 - 将 `apiBaseUrl` 替换为 HTTPS 域名。
 - 在微信公众平台配置 `request` 合法域名。
 - 接入微信登录、手机号授权、订阅消息和隐私协议。
+- 在 API 服务配置 `WECHAT_MINIPROGRAM_APP_ID`、`WECHAT_MINIPROGRAM_APP_SECRET`，用于 `code2Session` 换取服务端 `session_key`。
+
+## 微信运动
+
+`pages/capture` 已实现微信运动入口：
+
+1. 小程序调用 `wx.login`。
+2. API 用 `code2Session` 建立服务端会话。
+3. 小程序调用 `wx.getWeRunData` 获取 `encryptedData` 和 `iv`。
+4. API 解密最近 30 天 `stepInfoList`，生成今日步数、7 日均值、活跃天数、趋势变化和活动风险提示。
+
+开发者工具里如果没有正式 AppID 或后端未配置微信密钥，会自动落到演示步数，便于测试页面流程。
+
+## 华为 Health Kit
+
+华为手表作为增强数据源，不放在微信小程序内直接读取。当前小程序展示独立 Health Kit 接入管线，并提供“模拟Health Kit样本入库”按钮验证后端数据契约。真实上线时由 Android/HarmonyOS companion app 经用户授权读取 Health Kit，再调用 `POST /api/devices/huawei-health/sync` 同步样本。
 
 ## 页面
 
 - `pages/dashboard`：健康总览、患者切换、风险分、体征与闭环任务。
-- `pages/capture`：面部 ROI、掌腹 PPG、报告 OCR、基因 PRS 与隐私提示。
+- `pages/capture`：面部 ROI、掌腹 PPG、报告 OCR、基因 PRS、微信运动、Health Kit 管线与隐私提示。
 - `pages/agents`：任务编排、质量控制、证据图谱、RiskPrompt。
 - `pages/os`：Vitalife Agent OS，展示三层架构、Agent + Skill、商业落地和差异化能力。
 - `pages/report`：周期健康报告、趋势摘要、医生复核。

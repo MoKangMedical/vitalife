@@ -81,6 +81,38 @@
 
   <view class="section card" wx:if="{{patient}}">
     <view class="section-title">
+      <text>微信运动</text>
+      <text>{{weRunEvent ? 'scope.werun已同步' : '小程序首选入口'}}</text>
+    </view>
+    <view class="metric-grid">
+      <view class="metric">
+        <text class="metric-label">今日步数</text>
+        <text class="metric-value">{{weRunEvent ? weRunEvent.readings.stepsToday : patient.latest.steps}}<text class="metric-unit">步</text></text>
+      </view>
+      <view class="metric">
+        <text class="metric-label">7日均值</text>
+        <text class="metric-value">{{weRunEvent ? weRunEvent.readings.steps7dAvg : patient.latest.steps}}<text class="metric-unit">步/日</text></text>
+      </view>
+      <view class="metric">
+        <text class="metric-label">活跃天数</text>
+        <text class="metric-value">{{weRunEvent ? weRunEvent.readings.activeDays7 : '-'}}<text class="metric-unit">/7日</text></text>
+      </view>
+      <view class="metric">
+        <text class="metric-label">趋势变化</text>
+        <text class="metric-value">{{weRunEvent ? weRunEvent.readings.stepTrendPercent : '-'}}<text class="metric-unit">%</text></text>
+      </view>
+    </view>
+    <button class="btn primary full spaced" bindtap="syncWeRun">授权同步微信运动</button>
+    <view class="tag-row" wx:if="{{weRunEvent && weRunEvent.riskFlags.length}}">
+      <text wx:for="{{weRunEvent.riskFlags}}" wx:key="*this">{{item}}</text>
+    </view>
+    <view class="tag-row" wx:elif="{{weRunEvent}}">
+      <text>微信运动已写入长期活动趋势</text>
+    </view>
+  </view>
+
+  <view class="section card" wx:if="{{patient}}">
+    <view class="section-title">
       <text>硬件数据网关</text>
       <text>{{deviceEvent ? deviceEvent.deviceType : '家庭设备'}}</text>
     </view>
@@ -97,6 +129,29 @@
     <button class="btn primary full spaced" bindtap="syncDevice">同步设备并写入记忆</button>
     <view class="tag-row" wx:if="{{deviceEvent}}">
       <text wx:for="{{deviceEvent.riskFlags}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="section card" wx:if="{{patient}}">
+    <view class="section-title">
+      <text>华为 Health Kit增强管线</text>
+      <text>{{healthKitEvent ? '增强数据已入库' : '独立管线'}}</text>
+    </view>
+    <view class="list">
+      <view class="list-item" wx:for="{{healthKitStages}}" wx:key="step">
+        <view class="list-dot"></view>
+        <view class="list-content">
+          <text class="list-title">{{item.step}} {{item.name}}</text>
+          <text class="list-desc">{{item.detail}}</text>
+        </view>
+      </view>
+    </view>
+    <button class="btn full spaced" bindtap="syncHealthKitDemo">模拟Health Kit样本入库</button>
+    <view class="tag-row" wx:if="{{healthKitEvent && healthKitEvent.riskFlags.length}}">
+      <text wx:for="{{healthKitEvent.riskFlags}}" wx:key="*this">{{item}}</text>
+    </view>
+    <view class="tag-row" wx:elif="{{healthKitEvent}}">
+      <text>华为手表增强样本已进入融合分析</text>
     </view>
   </view>
 

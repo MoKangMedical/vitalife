@@ -7,6 +7,8 @@ Vitalife 是一个“多模态心血管与抗衰健康管理 Agent”平台原�
 - 用户健康总览：风险分、血管年龄偏离、实时体征、7 日趋势、闭环任务。
 - Vitalife Agent OS：MIMO底座、Vitalife MemOS、证据研究链、Agent + Skill 编排、Skill市场和企业Agent模板。
 - 多模态采集台：面部 ROI、PPG 复测、报告/基因上传状态、端侧隐私控制。
+- 微信运动接入：小程序 `wx.login` + `wx.getWeRunData`，后端解密步数后写入活动趋势、设备事件和 Vitalife MemOS。
+- 华为 Health Kit 增强管线：作为独立 companion app 数据源设计，接收手表运动、心率、HRV、血氧、睡眠和血压样本。
 - 智能体分析中心：任务编排流程、质量控制向量、专家证据表、RiskPrompt 输出。
 - 报告中心：周期健康报告、医生复核、家属同步、归档流程。
 - 医生/运营台：人群分层队列、复核队列、医生备注。
@@ -70,11 +72,33 @@ npm run test:miniprogram
 - `GET /health`
 - `GET /api/platform/overview`
 - `GET /api/platform/capabilities`
+- `POST /api/integrations/wechat/session`
+- `POST /api/devices/wechat-werun/sync`
+- `GET /api/integrations/health-kit/pipeline`
+- `POST /api/devices/huawei-health/sync`
 - `GET /api/patients`
 - `GET /api/patients/:id`
 - `GET /api/patients/:id/timeline`
 - `POST /api/analysis/run`
 - `POST /api/emergency/simulate`
+
+## 设备与平台接入
+
+微信运动生产链路：
+
+1. 小程序调用 `wx.login` 获取一次性 `code`。
+2. 服务端 `POST /api/integrations/wechat/session` 调用微信 `code2Session`，只在服务端保存 `session_key`。
+3. 小程序调用 `wx.getWeRunData` 获取 `encryptedData` 和 `iv`。
+4. 服务端 `POST /api/devices/wechat-werun/sync` 使用 `session_key` 解密，归一化最近 30 天步数，生成 7 日均值、活跃天数、低活动风险和 MemOS 事件。
+
+本地真实联调需要配置：
+
+```bash
+WECHAT_MINIPROGRAM_APP_ID=...
+WECHAT_MINIPROGRAM_APP_SECRET=...
+```
+
+华为手表不直接走微信小程序接口。Vitalife 已预留 `POST /api/devices/huawei-health/sync`，由华为生态 companion app 在用户授权后把 Health Kit 样本同步到后端，服务端统一映射为 `huawei_health_kit` 设备事件并进入 Agent 融合分析。
 
 ## 架构
 

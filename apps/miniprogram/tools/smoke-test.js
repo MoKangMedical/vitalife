@@ -28,6 +28,16 @@ function setupRuntime() {
     request(options) {
       options.fail && options.fail({ errMsg: 'mock network unavailable' });
     },
+    login(options) {
+      options.success && options.success({ code: 'mock-login-code' });
+    },
+    getWeRunData(options) {
+      options.success &&
+        options.success({
+          encryptedData: 'mock-encrypted-werun-data',
+          iv: 'mock-iv'
+        });
+    },
     setStorageSync(key, value) {
       storage[key] = value;
     },
@@ -97,6 +107,11 @@ async function runCaptureSmoke() {
   assert(page.data.reportCard && page.data.reportCard.status === 'redeemed', 'capture should redeem a report card');
   await page.syncDevice.call(page);
   assert(page.data.deviceEvent && page.data.deviceEvent.deviceType, 'capture should sync a device event');
+  await page.syncWeRun.call(page);
+  assert(page.data.weRunEvent && page.data.weRunEvent.deviceType === 'wechat_werun', 'capture should sync WeRun activity');
+  await page.syncHealthKitDemo.call(page);
+  assert(page.data.healthKitEvent && page.data.healthKitEvent.deviceType === 'huawei_health_kit', 'capture should sync Health Kit samples');
+  assert(page.data.healthKitStages.length >= 5, 'capture should show Health Kit pipeline stages');
   assert(page.data.memoryEvents.length >= 1, 'capture should show memory events');
   page.startCapture.call(page);
   await wait(3200);

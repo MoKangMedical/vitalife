@@ -3,14 +3,19 @@ import {
   buildMockAnalysis,
   buildMockDeviceEvent,
   buildMockEmergency,
+  buildMockHealthKitDeviceEvent,
   buildMockMemory,
+  buildMockWeRunDeviceEvent,
+  buildDemoHealthKitSamples,
+  buildDemoWeRunSteps,
   buildMockReportCard,
+  mockHealthKitPipeline,
   mockCapabilities,
   mockOverview,
   mockPatients,
   mockTimeline
 } from './mock';
-import type { AgentBuild, Analysis, CapabilityModel, DeviceEvent, EmergencyEvent, Overview, Patient, PatientMemory, ReportCard, TimelinePoint } from './types';
+import type { AgentBuild, Analysis, CapabilityModel, DeviceEvent, EmergencyEvent, HealthKitPipeline, Overview, Patient, PatientMemory, ReportCard, TimelinePoint } from './types';
 
 const isStaticPagesHost = typeof window !== 'undefined' && window.location.hostname.endsWith('github.io');
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787';
@@ -144,6 +149,46 @@ export async function syncDevice(patient: Patient): Promise<{ event: DeviceEvent
     return data;
   } catch {
     return { event: buildMockDeviceEvent(patient), analysis: buildMockAnalysis(patient) };
+  }
+}
+
+export async function syncWeRunSteps(patient: Patient): Promise<{ event: DeviceEvent; analysis: Analysis }> {
+  try {
+    const data = await postJson<{ event: DeviceEvent; analysis: Analysis }>('/api/devices/wechat-werun/sync', {
+      patientId: patient.id,
+      stepInfoList: buildDemoWeRunSteps(patient)
+    });
+    return data;
+  } catch {
+    return { event: buildMockWeRunDeviceEvent(patient), analysis: buildMockAnalysis(patient) };
+  }
+}
+
+export async function fetchHealthKitPipeline(): Promise<HealthKitPipeline> {
+  try {
+    const data = await getJson<{ pipeline: HealthKitPipeline }>('/api/integrations/health-kit/pipeline');
+    return data.pipeline;
+  } catch {
+    return mockHealthKitPipeline;
+  }
+}
+
+export async function syncHealthKitDemo(patient: Patient): Promise<{ event: DeviceEvent; analysis: Analysis; pipeline: HealthKitPipeline }> {
+  const payload = {
+    patientId: patient.id,
+    authorization: {
+      providerUserId: `huawei-demo-${patient.id}`,
+      scopes: ['healthkit.activity', 'healthkit.heart', 'healthkit.sleep', 'healthkit.oxygen_saturation', 'healthkit.blood_pressure'],
+      consentAt: new Date().toISOString()
+    },
+    samples: buildDemoHealthKitSamples(patient)
+  };
+
+  try {
+    const data = await postJson<{ event: DeviceEvent; analysis: Analysis; pipeline: HealthKitPipeline }>('/api/devices/huawei-health/sync', payload);
+    return data;
+  } catch {
+    return { event: buildMockHealthKitDeviceEvent(patient), analysis: buildMockAnalysis(patient), pipeline: mockHealthKitPipeline };
   }
 }
 
